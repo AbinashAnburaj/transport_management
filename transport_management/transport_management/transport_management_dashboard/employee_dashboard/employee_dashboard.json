@@ -1,0 +1,29 @@
+{
+ "cards": [],
+ "charts": [
+  {
+   "chart": "Employee chart",
+   "width": "Half"
+  },
+  {
+   "chart": "Employee chart",
+   "width": "Half"
+  },
+  {
+   "chart": "Employee chart",
+   "width": "Half"
+  }
+ ],
+ "creation": "2026-02-19 15:11:59.579920",
+ "dashboard_name": "Employee dashboard",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "modified": "2026-02-19 15:20:24.746297",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Employee dashboard",
+ "owner": "Administrator"
+}

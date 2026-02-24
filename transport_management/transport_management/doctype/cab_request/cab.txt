@@ -1,0 +1,545 @@
+import frappe
+from frappe.model.document import Document
+from frappe.utils import now_datetime, get_datetime
+from frappe import _
+
+class CabRequest(Document):
+
+    def validate(self):
+        self.validate_dates()
+        self.prevent_employee_status_change()
+        self.validate_driver_complete()
+        self.handle_allocation()
+
+    def on_update(self):
+        self.send_status_mail()
+
+    # 1. 🔒 DATE & TIME VALIDATION
+    def validate_dates(self):
+        if self.booking_datetime:
+            if get_datetime(self.booking_datetime) < now_datetime():
+                frappe.throw(_("Booking cannot be in the past. Please select a future time."))
+
+    # 2. 🚫 Prevent Employee from changing status
+    def prevent_employee_status_change(self):
+        if self.is_new(): return
+        
+        roles = frappe.get_roles()
+        allowed_roles = ["Fleet Manager", "System Manager", "Driver"]
+        if "Employee" in roles and not any(role in roles for role in allowed_roles):
+            if self.db_get("status") != self.status:
+                frappe.throw(_("Employees are not allowed to change the status."))
+
+    # 3. 🚖 Only Driver can mark Completed
+    def validate_driver_complete(self):
+        if self.is_new(): return
+
+        old_status = self.db_get("status")
+        if old_status != self.status and self.status == "Completed":
+            if "Driver" not in frappe.get_roles():
+                frappe.throw(_("Only the assigned Driver can mark the trip as Completed."))
+
+    # 4. 🔁 Copy Allocation → Trip Details when Approved
+    def handle_allocation(self):
+        if self.status == "Approved":
+            if not self.driver_id or not self.cab:
+                frappe.throw(_("Please select a Driver and Cab in the Allocation section before approving."))
+            
+            self.assigned_driver = self.driver_id
+            self.assigned_cab = self.cab
+
+    # 5. 📧 Send Mail on Approved / Rejected
+    def send_status_mail(self):
+        if self.is_new() or self.db_get("status") == self.status:
+            return
+
+        employee_email = frappe.db.get_value("Employee", self.employee_id, "personal_email")
+        driver_email = None
+        
+        # Get Driver Email (Corrected for standard Driver Doctype)
+        if self.driver_id:
+            # First find the employee linked to the driver
+            driver_employee = frappe.db.get_value("Driver", self.driver_id, "employee")
+            if driver_employee:
+                driver_email = frappe.db.get_value("Employee", driver_employee, "personal_email")
+
+        # ✅ Approved
+        if self.status == "Approved" and employee_email:
+            frappe.sendmail(
+                recipients=[employee_email],
+                subject="Cab Request Approved",
+                message=f"""
+                Hello {self.employee_name},<br><br>
+                Your cab request is approved.<br>
+                Driver: {self.assigned_driver}<br>
+                Cab: {self.assigned_cab}<br>
+                Pickup: {self.pickup_location}<br>
+                Drop: {self.drop_location}<br><br>
+                Regards
+                """
+            )
+            
+            if driver_email:
+                frappe.sendmail(
+                    recipients=[driver_email],
+                    subject="New Cab Assignment",
+                    message=f"""
+                    You have been assigned a trip.<br><br>
+                    Employee: {self.employee_name}<br>
+                    Pickup: {self.pickup_location}<br>
+                    Drop: {self.drop_location}<br>
+                    Contact: {self.contact_no}
+                    """
+                )
+
+        # ❌ Rejected
+        if self.status == "Rejected" and employee_email:
+            frappe.sendmail(
+                recipients=[employee_email],
+                subject="Cab Request Rejected",
+                message=f"""
+                Hello {self.employee_name},<br><br>
+                Your cab request was rejected.<br>
+                Reason: {self.rejection_reason}<br><br>
+                Regards
+                """
+            )
+
+@frappe.whitelist()
+def get_employee_basic_details():
+    employee = frappe.db.get_value(
+        "Employee",
+        {"user_id": frappe.session.user},
+        ["name", "employee_name", "department", "cell_number"],
+        as_dict=True,
+    )
+    return employee
+
+
+# =========================================================
+#  PASTE THE PERMISSION CODE HERE (OUTSIDE THE CLASS)
+# =========================================================
+
+def get_permission_query_conditions(user):
+    if not user: user = frappe.session.user
+    roles = frappe.get_roles(user)
+
+    # 1. Managers see everything
+    if "Fleet Manager" in roles or "System Manager" in roles:
+        return ""
+
+    # 2. Drivers - Check Links
+    if "Driver" in roles:
+        employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+        if employee_id:
+            driver_name = frappe.db.get_value("Driver", {"employee": employee_id}, "name")
+            if driver_name:
+                return f"`tabCab Request`.driver_id = '{driver_name}'"
+        
+        return "1=0" # If no driver found, show nothing
+
+    # 3. Employees see their own requests (requested by employee_id linked to their user_id)
+    if "Employee" in roles:
+        employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+        if employee_id:
+             return f"`tabCab Request`.employee_id = '{employee_id}'"
+
+    return ""
+
+def has_permission(doc, user):
+    if not user: user = frappe.session.user
+    roles = frappe.get_roles(user)
+
+    if "Fleet Manager" in roles or "System Manager" in roles:
+        return True
+
+    if "Driver" in roles:
+        employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+        if employee_id:
+            driver_name = frappe.db.get_value("Driver", {"employee": employee_id}, "name")
+            return doc.driver_id == driver_name
+            
+    if "Employee" in roles:
+        employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+        return doc.employee_id == employee_id
+
+    return doc.owner == user
+#####################################################JAVA SCRIPT#################################################################
+
+// ============================================================
+// Cab Request - Client Script v3 (Field-safe, Portal + Desk)
+// Place this in: transport_management/public/js/cab_request.js
+// hooks.py: doctype_js = {"Cab Request": "public/js/cab_request.js"}
+// After editing: bench build --app transport_management && bench restart
+// ============================================================
+
+// ── Safe field setter — silently skips fields that don't exist ──
+function safe_set(frm, fieldname, value) {
+    try {
+        if (frm.fields_dict && frm.fields_dict[fieldname]) {
+            frm.set_value(fieldname, value);
+        } else {
+            // Field not in form — set directly on doc so it's saved
+            frm.doc[fieldname] = value;
+        }
+    } catch(e) {
+        // Silently ignore
+    }
+}
+
+frappe.ui.form.on('Cab Request', {
+    onload: function(frm) {
+        load_leaflet_then_init(frm);
+    },
+    refresh: function(frm) {
+        if (window.L) {
+            init_map(frm);
+        } else {
+            load_leaflet_then_init(frm);
+        }
+    },
+    pickup_location: function(frm) {
+        if (frm._drop_coords && frm.doc.pickup_location) {
+            geocode_field(frm, 'pickup');
+        }
+    },
+    drop_location: function(frm) {
+        if (frm._pickup_coords && frm.doc.drop_location) {
+            geocode_field(frm, 'drop');
+        }
+    }
+});
+
+// ── Load Leaflet CSS + JS ────────────────────────────────────
+function load_leaflet_then_init(frm) {
+    if (!document.getElementById('leaflet-css')) {
+        $('<link id="leaflet-css" rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">')
+            .appendTo('head');
+    }
+    if (!window.L) {
+        $.getScript('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', function() {
+            setTimeout(() => init_map(frm), 200);
+        });
+    } else {
+        init_map(frm);
+    }
+}
+
+// ── Main Init ────────────────────────────────────────────────
+function init_map(frm) {
+    if (frm._cab_map_done) {
+        frm._map && frm._map.invalidateSize();
+        return;
+    }
+
+    inject_styles();
+
+    // Find the blank "map" area — the HTML field or the gap between Drop Location and Distance
+    // Strategy: insert our UI after the drop_location field row
+    const $drop_field = frm.get_field('drop_location') && $(frm.get_field('drop_location').wrapper);
+    if (!$drop_field || !$drop_field.length) {
+        console.warn('[CabMap] drop_location field not found, retrying...');
+        setTimeout(() => init_map(frm), 600);
+        return;
+    }
+
+    // Remove any existing map widget we inserted
+    $('#cab-map-widget').remove();
+
+    const map_html = `
+    <div id="cab-map-widget" style="margin: 12px 0 4px;">
+        <div style="display:flex; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:200px; position:relative;">
+                <div style="font-size:11px; font-weight:600; color:#6c757d; margin-bottom:4px;">📍 PICKUP LOCATION</div>
+                <input id="cab-pickup-input" type="text" autocomplete="off" placeholder="Type to search pickup..."
+                    style="width:100%;padding:9px 12px;border:1.5px solid #ced4da;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;"/>
+                <div id="cab-pickup-sug" class="cab-sug-box"></div>
+            </div>
+            <div style="flex:1; min-width:200px; position:relative;">
+                <div style="font-size:11px; font-weight:600; color:#6c757d; margin-bottom:4px;">🏁 DROP LOCATION</div>
+                <input id="cab-drop-input" type="text" autocomplete="off" placeholder="Type to search drop..."
+                    style="width:100%;padding:9px 12px;border:1.5px solid #ced4da;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;"/>
+                <div id="cab-drop-sug" class="cab-sug-box"></div>
+            </div>
+        </div>
+
+        <div id="cab-map-el" style="height:400px; border-radius:10px; border:1.5px solid #dee2e6; overflow:hidden; background:#e8eaed;"></div>
+
+        <div id="cab-route-bar" style="display:none; margin-top:8px; padding:10px 16px;
+            background:linear-gradient(135deg,#e8f4fd,#f0f9ff); border-radius:8px;
+            border-left:4px solid #0d6efd; font-size:13px; color:#333; display:flex; gap:24px; flex-wrap:wrap;">
+            <span>🛣️ <strong>Distance:</strong> <span id="cab-dist-val">—</span></span>
+            <span>⏱️ <strong>Est. Travel Time:</strong> <span id="cab-eta-val">—</span></span>
+        </div>
+
+        <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button id="cab-save-loc-btn" class="cab-btn" style="background:#198754;">💾 Save This Route</button>
+            <button id="cab-load-loc-btn" class="cab-btn" style="background:#0d6efd;">📂 Load Saved Route</button>
+        </div>
+    </div>`;
+
+    // Insert right after drop_location field
+    $drop_field.after(map_html);
+
+    // Hide the Frappe "Map" field (HTML type blank space)
+    const map_field = frm.get_field('map');
+    if (map_field) {
+        $(map_field.wrapper).hide();
+    }
+
+    // Also hide original pickup/drop location text boxes (they are now replaced by our search inputs)
+    // But keep them hidden only visually so frappe still tracks the values
+    $(frm.get_field('pickup_location').wrapper).hide();
+    $(frm.get_field('drop_location').wrapper).hide();
+
+    // Init Leaflet
+    const map = L.map('cab-map-el').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+        maxZoom: 19
+    }).addTo(map);
+
+    frm._map = map;
+    frm._markers = {};
+    frm._route_layer = null;
+    frm._pickup_coords = null;
+    frm._drop_coords = null;
+    frm._cab_map_done = true;
+
+    // Pre-fill from existing doc values
+    if (frm.doc.pickup_location) {
+        $('#cab-pickup-input').val(frm.doc.pickup_location);
+        geocode_and_place(frm, frm.doc.pickup_location, 'pickup');
+    }
+    if (frm.doc.drop_location) {
+        $('#cab-drop-input').val(frm.doc.drop_location);
+        geocode_and_place(frm, frm.doc.drop_location, 'drop');
+    }
+
+    // Bind search inputs
+    bind_search('cab-pickup-input', 'cab-pickup-sug', function(result) {
+        frm._pickup_coords = [parseFloat(result.lat), parseFloat(result.lon)];
+        place_marker(frm, 'pickup', frm._pickup_coords, result.display_name);
+        safe_set(frm, 'pickup_location', result.display_name);
+        safe_set(frm, 'pickup_latitude', result.lat);
+        safe_set(frm, 'pickup_longitude', result.lon);
+        try_draw_route(frm);
+    });
+
+    bind_search('cab-drop-input', 'cab-drop-sug', function(result) {
+        frm._drop_coords = [parseFloat(result.lat), parseFloat(result.lon)];
+        place_marker(frm, 'drop', frm._drop_coords, result.display_name);
+        safe_set(frm, 'drop_location', result.display_name);
+        try_draw_route(frm);
+    });
+
+    // Save/Load buttons
+    $('#cab-save-loc-btn').on('click', () => save_route_dialog(frm));
+    $('#cab-load-loc-btn').on('click', () => load_route_dialog(frm));
+}
+
+// ── Styles ───────────────────────────────────────────────────
+function inject_styles() {
+    if (document.getElementById('cab-map-styles')) return;
+    $('<style id="cab-map-styles">').text(`
+        .cab-sug-box {
+            display:none; position:absolute; top:calc(100% + 2px); left:0; right:0;
+            background:#fff; border:1px solid #ced4da; border-radius:8px;
+            max-height:210px; overflow-y:auto; z-index:99999;
+            box-shadow:0 6px 18px rgba(0,0,0,0.12);
+        }
+        .cab-sug-item {
+            padding:9px 12px; font-size:13px; cursor:pointer;
+            border-bottom:1px solid #f0f0f0; line-height:1.4;
+            transition: background 0.12s;
+        }
+        .cab-sug-item:hover { background:#f0f7ff; }
+        .cab-sug-item:last-child { border-bottom:none; }
+        .cab-btn {
+            color:#fff; border:none; padding:7px 14px; border-radius:7px;
+            font-size:12px; cursor:pointer; font-weight:500;
+            transition: opacity 0.15s;
+        }
+        .cab-btn:hover { opacity:0.85; }
+    `).appendTo('head');
+}
+
+// ── Autocomplete Search ───────────────────────────────────────
+function bind_search(input_id, sug_id, on_select) {
+    let timer;
+    $('#' + input_id).on('input', function() {
+        clearTimeout(timer);
+        const q = $(this).val().trim();
+        if (q.length < 3) { $('#' + sug_id).hide().empty(); return; }
+        timer = setTimeout(() => {
+            fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`,
+                { headers: { 'Accept-Language': 'en' } })
+                .then(r => r.json())
+                .then(results => {
+                    const $box = $('#' + sug_id).empty();
+                    if (!results.length) { $box.hide(); return; }
+                    results.forEach(r => {
+                        $('<div class="cab-sug-item">').text(r.display_name).appendTo($box)
+                            .on('click', function() {
+                                $('#' + input_id).val(r.display_name);
+                                $box.hide().empty();
+                                on_select(r);
+                            });
+                    });
+                    $box.show();
+                })
+                .catch(() => { });
+        }, 420);
+    });
+
+    $(document).on('click', function(e) {
+        if (!$(e.target).is('#' + input_id)) $('#' + sug_id).hide();
+    });
+}
+
+// ── Geocode + Place from text ─────────────────────────────────
+function geocode_and_place(frm, text, type) {
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'en' } })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data[0]) {
+                const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+                if (type === 'pickup') frm._pickup_coords = coords;
+                else frm._drop_coords = coords;
+                place_marker(frm, type, coords, data[0].display_name);
+                try_draw_route(frm);
+            }
+        }).catch(() => { });
+}
+
+// ── Geocode from form field value ────────────────────────────
+function geocode_field(frm, type) {
+    const val = type === 'pickup' ? frm.doc.pickup_location : frm.doc.drop_location;
+    if (val) geocode_and_place(frm, val, type);
+}
+
+// ── Place Marker ─────────────────────────────────────────────
+function place_marker(frm, type, coords, label) {
+    if (!frm._map) return;
+    if (frm._markers[type]) frm._map.removeLayer(frm._markers[type]);
+
+    const color = type === 'pickup' ? '#198754' : '#dc3545';
+    const icon = L.divIcon({
+        html: `<div style="width:18px;height:18px;background:${color};border-radius:50%;
+               border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>`,
+        iconSize: [24, 24], iconAnchor: [12, 12], className: ''
+    });
+
+    frm._markers[type] = L.marker(coords, { icon })
+        .addTo(frm._map)
+        .bindPopup(`<b>${type === 'pickup' ? '📍 Pickup' : '🏁 Drop'}</b><br><small>${label}</small>`)
+        .openPopup();
+
+    // Fit both markers
+    const pts = Object.values(frm._markers).map(m => m.getLatLng());
+    if (pts.length >= 2) {
+        frm._map.fitBounds(L.latLngBounds(pts).pad(0.2));
+    } else {
+        frm._map.setView(coords, 14);
+    }
+}
+
+// ── Draw Route ────────────────────────────────────────────────
+function try_draw_route(frm) {
+    if (!frm._pickup_coords || !frm._drop_coords) return;
+    const [plat, plng] = frm._pickup_coords;
+    const [dlat, dlng] = frm._drop_coords;
+    const url = `https://router.project-osrm.org/route/v1/driving/${plng},${plat};${dlng},${dlat}?overview=full&geometries=geojson`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.routes || !data.routes.length) return;
+            const route = data.routes[0];
+            const km = (route.distance / 1000).toFixed(1);
+            const total_min = Math.round(route.duration / 60);
+            const h = Math.floor(total_min / 60), m = total_min % 60;
+            const eta = h > 0 ? `${h}h ${m}m` : `${m} min`;
+
+            // Update the bar UI
+            $('#cab-dist-val').text(km + ' km');
+            $('#cab-eta-val').text(eta);
+            $('#cab-route-bar').css('display', 'flex');
+
+            // Safe-set fields — works even if field name differs in your DocType
+            safe_set(frm, 'distance', km + ' km');
+            // Try both common field names for ETA
+            if (frm.fields_dict && frm.fields_dict['estimated_arrival_time']) {
+                safe_set(frm, 'estimated_arrival_time', eta);
+            } else if (frm.fields_dict && frm.fields_dict['estimated_time']) {
+                safe_set(frm, 'estimated_time', eta);
+            } else {
+                // Just store on doc directly
+                frm.doc['estimated_arrival_time'] = eta;
+            }
+
+            if (frm._route_layer) frm._map.removeLayer(frm._route_layer);
+            frm._route_layer = L.geoJSON(route.geometry, {
+                style: { color: '#0d6efd', weight: 5, opacity: 0.85 }
+            }).addTo(frm._map);
+
+            frm._map.fitBounds(frm._route_layer.getBounds().pad(0.15));
+        })
+        .catch(err => console.warn('[CabMap] Route error:', err));
+}
+
+// ── Save Route ───────────────────────────────────────────────
+function save_route_dialog(frm) {
+    const d = new frappe.ui.Dialog({
+        title: '💾 Save This Route',
+        fields: [
+            { fieldname: 'rname', fieldtype: 'Data', label: 'Route Label (e.g. "Home → Office")', reqd: 1 },
+            { fieldname: 'pickup', fieldtype: 'Data', label: 'Pickup', default: frm.doc.pickup_location, read_only: 1 },
+            { fieldname: 'drop', fieldtype: 'Data', label: 'Drop', default: frm.doc.drop_location, read_only: 1 }
+        ],
+        primary_action_label: 'Save',
+        primary_action(v) {
+            if (!frm.doc.pickup_location || !frm.doc.drop_location) {
+                frappe.show_alert({ message: 'Set pickup & drop first!', indicator: 'orange' }); return;
+            }
+            const key = 'cab_saved_routes_' + frappe.session.user;
+            const list = JSON.parse(localStorage.getItem(key) || '[]');
+            list.push({ label: v.rname, pickup: frm.doc.pickup_location, drop: frm.doc.drop_location });
+            localStorage.setItem(key, JSON.stringify(list));
+            frappe.show_alert({ message: `✅ Route "${v.rname}" saved!`, indicator: 'green' }, 4);
+            d.hide();
+        }
+    });
+    d.show();
+}
+
+// ── Load Route ───────────────────────────────────────────────
+function load_route_dialog(frm) {
+    const key = 'cab_saved_routes_' + frappe.session.user;
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!list.length) { frappe.msgprint('No saved routes yet. Save one first!'); return; }
+
+    const d = new frappe.ui.Dialog({
+        title: '📂 Load Saved Route',
+        fields: [{
+            fieldname: 'sel', fieldtype: 'Select', label: 'Choose a route', reqd: 1,
+            options: list.map(r => r.label).join('\n')
+        }],
+        primary_action_label: 'Load',
+        primary_action(v) {
+            const found = list.find(r => r.label === v.sel);
+            if (found) {
+                safe_set(frm, 'pickup_location', found.pickup);
+                safe_set(frm, 'drop_location', found.drop);
+                $('#cab-pickup-input').val(found.pickup);
+                $('#cab-drop-input').val(found.drop);
+                geocode_and_place(frm, found.pickup, 'pickup');
+                geocode_and_place(frm, found.drop, 'drop');
+                frappe.show_alert({ message: `Loaded: ${found.label}`, indicator: 'blue' }, 3);
+            }
+            d.hide();
+        }
+    });
+    d.show();
+}

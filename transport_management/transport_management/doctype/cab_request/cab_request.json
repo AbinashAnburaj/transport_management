@@ -1,0 +1,260 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CAB-BOOK-{###}",
+ "creation": "2026-02-18 10:33:55.493832",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "requester_details_section",
+  "employee_id",
+  "employee_name",
+  "department",
+  "contact_no",
+  "trip_details_section",
+  "pickup_location",
+  "drop_location",
+  "purpose",
+  "booking_datetime",
+  "pickup_lat",
+  "assigned_driver",
+  "assigned_cab",
+  "pickup_lng",
+  "drop_lat",
+  "drop_lng",
+  "allocation_section",
+  "status",
+  "rejection_reason",
+  "driver_id",
+  "driver_number",
+  "cab",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "requester_details_section",
+   "fieldtype": "Section Break",
+   "label": "Requester Details"
+  },
+  {
+   "fetch_from": "employee_id.department",
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Department",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee_id.cell_number",
+   "fieldname": "contact_no",
+   "fieldtype": "Data",
+   "label": "Contact No"
+  },
+  {
+   "fieldname": "trip_details_section",
+   "fieldtype": "Section Break",
+   "label": "Trip Details"
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Small Text",
+   "label": "Purpose",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "allocation_section",
+   "fieldtype": "Section Break",
+   "label": "Allocation"
+  },
+  {
+   "fetch_from": "employee_id.first_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name"
+  },
+  {
+   "fieldname": "pickup_location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Pickup Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "booking_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Booking Date/Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nAssigned\nIn Trip\nCompleted\nRejected"
+  },
+  {
+   "fieldname": "driver_id",
+   "fieldtype": "Link",
+   "label": "Driver Id",
+   "options": "Driver"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cab Request",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "cab",
+   "fieldtype": "Link",
+   "label": "Cab",
+   "options": "Vehicle"
+  },
+  {
+   "fieldname": "assigned_cab",
+   "fieldtype": "Data",
+   "label": "Assigned Cab",
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_driver",
+   "fieldtype": "Data",
+   "label": "Assigned Driver",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejection_reason",
+   "fieldtype": "Small Text",
+   "label": "Rejection Reason"
+  },
+  {
+   "fieldname": "drop_location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Drop Location",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee_name.user_id",
+   "fieldname": "employee_id",
+   "fieldtype": "Link",
+   "label": "Employee Id",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "pickup_lat",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Pickup Latitude"
+  },
+  {
+   "fieldname": "pickup_lng",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Pickup Longitude"
+  },
+  {
+   "fieldname": "drop_lat",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Drop Latitude"
+  },
+  {
+   "fieldname": "drop_lng",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Drop Longitude"
+  },
+  {
+   "fetch_from": "driver_id.cell_number",
+   "fieldname": "driver_number",
+   "fieldtype": "Data",
+   "label": "Driver Number"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-02-23 11:33:55.757140",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Cab Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Driver",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Fleet Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

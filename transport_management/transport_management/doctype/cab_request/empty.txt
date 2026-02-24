@@ -1,0 +1,468 @@
+PYTHON CODE FOR CAB_REQUEST DOCTYPE
+
+import frappe
+from frappe.model.document import Document
+from frappe.utils import now_datetime, get_datetime
+from frappe import _
+
+
+class CabRequest(Document):
+
+    # 🔒 DATE & TIME VALIDATION
+    def validate(self):
+        if self.booking_datetime:
+            if get_datetime(self.booking_datetime) < now_datetime():
+                frappe.throw(_("Booking cannot be in the past. Please select a future time."))
+
+
+# 🚫 Prevent Employee from changing status
+def prevent_employee_status_change(doc, method):
+
+    if "Employee" in frappe.get_roles():
+        old_doc = doc.get_doc_before_save()
+
+        if old_doc and doc.status != old_doc.status:
+            frappe.throw(_("Employees are not allowed to change status."))
+
+
+# 🚖 Only Driver can mark Completed
+def validate_driver_complete(doc, method):
+
+    old_doc = doc.get_doc_before_save()
+
+    if not old_doc:
+        return
+
+    if old_doc.status != doc.status and doc.status == "Completed":
+        if "Driver" not in frappe.get_roles():
+            frappe.throw(_("Only Driver can mark the trip as Completed."))
+
+
+# 🔁 Copy Allocation → Trip Details when Approved
+def copy_allocation_to_trip(doc, method):
+
+    if doc.status == "Approved":
+
+        if not doc.driver_id or not doc.cab:
+            frappe.throw(_("Please select Driver and Cab before approving."))
+
+        doc.assigned_driver = doc.driver_id
+        doc.assigned_cab = doc.cab
+
+
+# 📧 Send Mail on Approved / Rejected
+def send_status_mail(doc, method):
+
+    employee_email = frappe.db.get_value(
+        "Employee", doc.employee_id, "personal_email"
+    )
+
+    driver_email = None
+    if doc.driver_id:
+        driver_email = frappe.db.get_value("Driver", doc.driver_id, "email")
+
+    # ✅ Approved
+    if doc.status == "Approved":
+
+        if employee_email:
+            frappe.sendmail(
+                recipients=[employee_email],
+                subject="Cab Request Approved",
+                message=f"""
+                Hello {doc.employee_name},<br><br>
+                Your cab request is approved.<br>
+                Driver: {doc.assigned_driver}<br>
+                Cab: {doc.assigned_cab}<br>
+                Pickup: {doc.pickup_location}<br>
+                Drop: {doc.drop_location}<br><br>
+                Regards
+                """,
+            )
+
+        if driver_email:
+            frappe.sendmail(
+                recipients=[driver_email],
+                subject="New Cab Assignment",
+                message=f"""
+                You have been assigned a trip.<br><br>
+                Employee: {doc.employee_name}<br>
+                Pickup: {doc.pickup_location}<br>
+                Drop: {doc.drop_location}<br>
+                Contact: {doc.contact_no}
+                """,
+            )
+
+    # ❌ Rejected
+    if doc.status == "Rejected":
+
+        if employee_email:
+            frappe.sendmail(
+                recipients=[employee_email],
+                subject="Cab Request Rejected",
+                message=f"""
+                Hello {doc.employee_name},<br><br>
+                Your cab request was rejected.<br>
+                Reason: {doc.rejection_reason}<br><br>
+                Regards
+                """,
+            )
+            
+@frappe.whitelist()
+def get_employee_basic_details():
+    employee = frappe.db.get_value(
+        "Employee",
+        {"user_id": frappe.session.user},
+        ["name", "employee_name", "department", "mobile_no"],
+        as_dict=True,
+    )
+    return employee
+################################################################33JS CODE####################################################################
+
+frappe.ui.form.on("Cab Request", {
+
+    onload: function(frm) {
+
+        // Auto set employee details for logged-in employee
+        if (frappe.user.has_role("Employee") && frm.is_new()) {
+
+            frappe.db.get_value("Employee", 
+                { user_id: frappe.session.user },   // correct lookup
+                ["name", "employee_name", "department"]
+            ).then(r => {
+
+                if (r.message) {
+                    frm.set_value("employee_id", r.message.name);
+                    frm.set_value("employee_name", r.message.employee_name);
+                    frm.set_value("department", r.message.department);
+                    frm.set_value("contact_no", r.message.mobile_no);
+                    
+                }
+
+            });
+        }
+    },
+
+    refresh: function(frm) {
+
+        // Hide allocation fields for Employee
+        if (frappe.user.has_role("Employee")) {
+            frm.set_df_property("driver_id", "hidden", 0);
+            frm.set_df_property("cab", "hidden", 1);
+            frm.set_df_property("rejection_reason", "hidden", 1);
+        }
+
+        // Driver can only change status
+        if (frappe.user.has_role("Driver")) {
+            frm.set_df_property("driver_id", "read_only", 0);
+            frm.set_df_property("cab", "read_only", 0);
+        }
+    }
+});
+
+
+#######################################################HOOKES FILE###################################################################
+
+app_name = "transport_management"
+app_title = "Transport Management"
+app_publisher = "our team"
+app_description = "Internal cab management system"
+app_email = "anbuabinash1@gmail.com"
+app_license = "mit"
+
+# Apps
+# ------------------
+
+# required_apps = []
+
+# Each item in the list will be shown as an app in the apps page
+# add_to_apps_screen = [
+# 	{
+# 		"name": "transport_management",
+# 		"logo": "/assets/transport_management/logo.png",
+# 		"title": "Transport Management",
+# 		"route": "/transport_management",
+# 		"has_permission": "transport_management.api.permission.has_app_permission"
+# 	}
+# ]
+
+# Includes in <head>
+# ------------------
+
+# include js, css files in header of desk.html
+# app_include_css = "/assets/transport_management/css/transport_management.css"
+# app_include_js = "/assets/transport_management/js/transport_management.js"
+
+# include js, css files in header of web template
+# web_include_css = "/assets/transport_management/css/transport_management.css"
+# web_include_js = "/assets/transport_management/js/transport_management.js"
+
+# include custom scss in every website theme (without file extension ".scss")
+# website_theme_scss = "transport_management/public/scss/website"
+
+# include js, css files in header of web form
+# webform_include_js = {"doctype": "public/js/doctype.js"}
+# webform_include_css = {"doctype": "public/css/doctype.css"}
+
+# include js in page
+# page_js = {"page" : "public/js/file.js"}
+
+# include js in doctype views
+# doctype_js = {"doctype" : "public/js/doctype.js"}
+# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
+# doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+
+# Svg Icons
+# ------------------
+# include app icons in desk
+# app_include_icons = "transport_management/public/icons.svg"
+
+# Home Pages
+# ----------
+
+# application home page (will override Website Settings)
+# home_page = "login"
+
+# website user home page (by Role)
+# role_home_page = {
+# 	"Role": "home_page"
+# }
+
+# Generators
+# ----------
+
+# automatically create page for each record of this doctype
+# website_generators = ["Web Page"]
+
+# Jinja
+# ----------
+
+# add methods and filters to jinja environment
+# jinja = {
+# 	"methods": "transport_management.utils.jinja_methods",
+# 	"filters": "transport_management.utils.jinja_filters"
+# }
+
+# Installation
+# ------------
+
+# before_install = "transport_management.install.before_install"
+# after_install = "transport_management.install.after_install"
+
+# Uninstallation
+# ------------
+
+# before_uninstall = "transport_management.uninstall.before_uninstall"
+# after_uninstall = "transport_management.uninstall.after_uninstall"
+
+# Integration Setup
+# ------------------
+# To set up dependencies/integrations with other apps
+# Name of the app being installed is passed as an argument
+
+# before_app_install = "transport_management.utils.before_app_install"
+# after_app_install = "transport_management.utils.after_app_install"
+
+# Integration Cleanup
+# -------------------
+# To clean up dependencies/integrations with other apps
+# Name of the app being uninstalled is passed as an argument
+
+# before_app_uninstall = "transport_management.utils.before_app_uninstall"
+# after_app_uninstall = "transport_management.utils.after_app_uninstall"
+
+# Desk Notifications
+# ------------------
+# See frappe.core.notifications.get_notification_config
+
+# notification_config = "transport_management.notifications.get_notification_config"
+
+# Permissions
+# -----------
+# Permissions evaluated in scripted ways
+
+# permission_query_conditions = {
+# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
+# }
+#
+# has_permission = {
+# 	"Event": "frappe.desk.doctype.event.event.has_permission",
+# }
+
+# DocType Class
+# ---------------
+# Override standard doctype classes
+
+# override_doctype_class = {
+# 	"ToDo": "custom_app.overrides.CustomToDo"
+# }
+
+# Document Events
+# ---------------
+# Hook on document methods and events
+
+# doc_events = {
+# 	"*": {
+# 		"on_update": "method",
+# 		"on_cancel": "method",
+# 		"on_trash": "method"
+# 	}
+# }
+
+# Scheduled Tasks
+# ---------------
+
+# scheduler_events = {
+# 	"all": [
+# 		"transport_management.tasks.all"
+# 	],
+# 	"daily": [
+# 		"transport_management.tasks.daily"
+# 	],
+# 	"hourly": [
+# 		"transport_management.tasks.hourly"
+# 	],
+# 	"weekly": [
+# 		"transport_management.tasks.weekly"
+# 	],
+# 	"monthly": [
+# 		"transport_management.tasks.monthly"
+# 	],
+# }
+
+# Testing
+# -------
+
+# before_tests = "transport_management.install.before_tests"
+
+# Overriding Methods
+# ------------------------------
+#
+# override_whitelisted_methods = {
+# 	"frappe.desk.doctype.event.event.get_events": "transport_management.event.get_events"
+# }
+#
+# each overriding function accepts a `data` argument;
+# generated from the base implementation of the doctype dashboard,
+# along with any modifications made in other Frappe apps
+# override_doctype_dashboards = {
+# 	"Task": "transport_management.task.get_dashboard_data"
+# }
+
+# exempt linked doctypes from being automatically cancelled
+#
+# auto_cancel_exempted_doctypes = ["Auto Repeat"]
+
+# Ignore links to specified DocTypes when deleting documents
+# -----------------------------------------------------------
+
+# ignore_links_on_delete = ["Communication", "ToDo"]
+
+# Request Events
+# ----------------
+# before_request = ["transport_management.utils.before_request"]
+# after_request = ["transport_management.utils.after_request"]
+
+# Job Events
+# ----------
+# before_job = ["transport_management.utils.before_job"]
+# after_job = ["transport_management.utils.after_job"]
+
+# User Data Protection
+# --------------------
+
+# user_data_fields = [
+# 	{
+# 		"doctype": "{doctype_1}",
+# 		"filter_by": "{filter_by}",
+# 		"redact_fields": ["{field_1}", "{field_2}"],
+# 		"partial": 1,
+# 	},
+# 	{
+# 		"doctype": "{doctype_2}",
+# 		"filter_by": "{filter_by}",
+# 		"partial": 1,
+# 	},
+# 	{
+# 		"doctype": "{doctype_3}",
+# 		"strict": False,
+# 	},
+# 	{
+# 		"doctype": "{doctype_4}"
+# 	}
+# ]
+
+# Authentication and authorization
+# --------------------------------
+
+# auth_hooks = [
+# 	"transport_management.auth.validate"
+# ]
+
+# Automatically update python controller files with type annotations for this app.
+# export_python_type_annotations = True
+
+# default_log_clearing_doctypes = {
+# 	"Logging DocType Name": 30  # days to retain logs
+# }
+
+# Translation
+# ------------
+# List of apps whose translatable strings should be excluded from this app's translations.
+# ignore_translatable_strings_from = []
+
+doc_events = {
+
+    "Cab Request": {
+
+        "before_save": [
+
+            "transport_management.transport_management.doctype.cab_request.cab_request.prevent_employee_status_change",
+
+            "transport_management.transport_management.doctype.cab_request.cab_request.validate_driver_complete",
+
+            "transport_management.transport_management.doctype.cab_request.cab_request.copy_allocation_to_trip"
+
+        ],
+
+        "on_update": [
+
+            "transport_management.transport_management.doctype.cab_request.cab_request.send_status_mail"
+
+        ]
+
+    }
+
+}
+
+
+# doc_events = {
+#     "Cab Request": {
+#         "before_save": [
+#             "your_app.your_module.doctype.cab_request.cab_request.prevent_employee_status_change",
+#             "your_app.your_module.doctype.cab_request.cab_request.validate_driver_complete",
+#             "your_app.your_module.doctype.cab_request.cab_request.copy_allocation_to_trip",
+#         ],
+#         "on_update": "your_app.your_module.doctype.cab_request.cab_request.send_status_mail",
+#     }
+# }
+
+
+  if (frm.is_driver && !frm.is_manager) {
+            
+            // Make EVERYTHING Read-Only first
+            frm.set_read_only(true);
+
+            // Re-enable Status so they can update it
+            // (But only if the trip isn't already finished)
+            if (frm.doc.status !== "Completed") {
+                frm.set_df_property("status", "read_only", 0);
+                
+                // Driver can only see "Approved" (current) and "Completed" (target)
+                frm.set_df_property("status", "options", ["Approved", "Completed"]);
+            }
+
+            // Hide the sensitive internal fields (optional, but good for cleanliness)
+            frm.set_df_property("rejection_reason", "hidden", 1);
+            frm.set_df_property("driver_id", "hidden", 1); // They know who they are
+        }

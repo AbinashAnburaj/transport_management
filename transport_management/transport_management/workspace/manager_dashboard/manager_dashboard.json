@@ -1,0 +1,65 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"Isclp58i2X\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Manager dashboard</span>\",\"col\":12}},{\"id\":\"hnwn_msMjh\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Pending requests\",\"col\":4}},{\"id\":\"vQR3s4jeUJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Completed trips\",\"col\":4}},{\"id\":\"wynuuQS65t\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cab request\",\"col\":3}},{\"id\":\"0oooOeg0ni\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Approved rides\",\"col\":4}},{\"id\":\"XdCacouPNY\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed rides\",\"col\":4}}]",
+ "creation": "2026-02-19 16:30:30.671458",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "external-link",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Manager dashboard",
+ "links": [],
+ "modified": "2026-02-19 19:19:45.866737",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Manager dashboard",
+ "number_cards": [
+  {
+   "label": "Pending requests",
+   "number_card_name": "Pending Requests"
+  },
+  {
+   "label": "Completed trips",
+   "number_card_name": "Completed Trips"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [
+  {
+   "document_type": "Cab Request",
+   "label": "Approved rides",
+   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Approved\",false]]"
+  },
+  {
+   "document_type": "Cab Request",
+   "label": "Completed rides",
+   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Completed\",false]]"
+  }
+ ],
+ "roles": [
+  {
+   "role": "Administrator"
+  },
+  {
+   "role": "Fleet Manager"
+  }
+ ],
+ "sequence_id": 3.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Cab request",
+   "link_to": "Cab Request",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Manager dashboard"
+}
