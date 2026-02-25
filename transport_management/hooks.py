@@ -28,7 +28,7 @@ permission_query_conditions = {
 has_permission = {
     "Cab Request": "transport_management.transport_management.doctype.cab_request.cab_request.has_permission",
 }
-doctype_js = {"Cab Request": "public/js/cab_request.js"}
+doctype_js = {"Cab Request": "public/js/map.js"}
 
 # --------------------------
 # Document Events
@@ -41,5 +41,10 @@ doctype_js = {"Cab Request": "public/js/cab_request.js"}
 doc_events = {
     "Cab Request": {
         "after_save": "transport_management.api.whatsapp.notify_users"
+    }
+}
+doc_events = {
+    "Cab Route": {
+        "before_save": "transport_management.transport_management.doctype.cab_request.cab_request.generate_route_geojson"
     }
 }

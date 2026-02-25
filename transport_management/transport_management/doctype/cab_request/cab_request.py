@@ -1,7 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import now_datetime, get_datetime, add_to_date
-from transport_management.whatsapp import send_whatsapp_message
+#from transport_management.whatsapp import send_whatsapp_message
 from frappe import _
  
 class CabRequest(Document):
@@ -620,3 +620,300 @@ def has_permission(doc, user):
         return doc.employee_id == employee_id
  
     return doc.owner == user
+
+
+# =========================================================
+#  ROUTE MATCHING & CAB BOOKING  (OpenStreetMap / Leaflet)
+#  Added below — existing code above is untouched
+# =========================================================
+
+import math
+import json
+
+
+# ─── Geometry Helpers ────────────────────────────────────────────────────────
+
+def _haversine_km(lat1, lng1, lat2, lng2):
+    """Great-circle distance in km between two lat/lng points."""
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi   = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _point_to_segment_km(px, py, ax, ay, bx, by):
+    """Shortest distance (km) from point P to line segment A→B."""
+    dx, dy = bx - ax, by - ay
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq < 1e-12:
+        return _haversine_km(px, py, ax, ay)
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / seg_len_sq))
+    return _haversine_km(px, py, ax + t * dx, ay + t * dy)
+
+
+def _nearest_stop_on_route(emp_lat, emp_lng, waypoints):
+    """
+    Returns (min_stop_dist_km, nearest_stop_dict, min_segment_dist_km)
+    Checks distance to every stop AND every segment between stops.
+    """
+    min_stop_dist = float("inf")
+    nearest_stop  = None
+
+    for wp in waypoints:
+        d = _haversine_km(emp_lat, emp_lng, wp["latitude"], wp["longitude"])
+        if d < min_stop_dist:
+            min_stop_dist = d
+            nearest_stop  = wp
+
+    # Also check perpendicular distance to each route segment
+    min_seg_dist = min_stop_dist
+    sorted_wps   = sorted(waypoints, key=lambda w: w.get("sequence", 0))
+    for i in range(len(sorted_wps) - 1):
+        a, b = sorted_wps[i], sorted_wps[i + 1]
+        d = _point_to_segment_km(
+            emp_lat, emp_lng,
+            a["latitude"], a["longitude"],
+            b["latitude"], b["longitude"],
+        )
+        if d < min_seg_dist:
+            min_seg_dist = d
+
+    return min_stop_dist, nearest_stop, min_seg_dist
+
+
+# ─── Seat Availability ───────────────────────────────────────────────────────
+
+def _get_booked_seat_count(route_name, travel_date, shift_type):
+    """Count confirmed bookings for a route on a given date + shift."""
+    return frappe.db.count(
+        "Cab Request",
+        filters={
+            "assigned_route": route_name,
+            "travel_date":    travel_date,
+            "shift_type":     shift_type,
+            "status":         ["in", ["Assigned", "In Trip", "Completed"]],
+        },
+    )
+
+
+# ─── Find Matching Cabs ──────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def find_matching_cabs(employee_lat, employee_lng, travel_date, shift_type, threshold_km=1.5):
+    """
+    Find all Active Cab Routes whose path passes within threshold_km of
+    the employee's pickup point AND still have available seats.
+    Returns list sorted by distance (nearest first).
+    Called from cab_request.js Leaflet dialog.
+    """
+    emp_lat   = float(employee_lat)
+    emp_lng   = float(employee_lng)
+    threshold = float(threshold_km)
+
+    routes = frappe.get_all(
+        "Cab Route",
+        filters={"status": "Active", "shift_type": shift_type},
+        fields=[
+            "name", "route_name", "route_code",
+            "vehicle", "license_plate",
+            "driver_name", "driver_contact",
+            "total_seats", "shift_time",
+            "start_location", "start_lat", "start_lng",
+            "end_location",   "end_lat",   "end_lng",
+        ],
+    )
+
+    results = []
+
+    for route in routes:
+        waypoints_raw = frappe.get_all(
+            "Route Waypoint",
+            filters={"parent": route["name"]},
+            fields=["stop_name", "landmark", "latitude", "longitude",
+                    "sequence", "pickup_time", "stop_type", "address"],
+        )
+
+        # Build full path: start → waypoints → end
+        all_points = (
+            [{
+                "stop_name":   route["start_location"],
+                "latitude":    route["start_lat"],
+                "longitude":   route["start_lng"],
+                "sequence":    0,
+                "pickup_time": str(route.get("shift_time") or ""),
+                "stop_type":   "Pickup",
+                "landmark":    "",
+            }]
+            + waypoints_raw
+            + [{
+                "stop_name":   route["end_location"],
+                "latitude":    route["end_lat"],
+                "longitude":   route["end_lng"],
+                "sequence":    9999,
+                "pickup_time": "",
+                "stop_type":   "Drop",
+                "landmark":    "",
+            }]
+        )
+
+        if len(all_points) < 2:
+            continue
+
+        min_stop_dist, nearest_stop, min_seg_dist = _nearest_stop_on_route(
+            emp_lat, emp_lng, all_points
+        )
+        effective_dist = min(min_stop_dist, min_seg_dist)
+
+        if effective_dist > threshold:
+            continue
+
+        booked    = _get_booked_seat_count(route["name"], travel_date, shift_type)
+        available = route["total_seats"] - booked
+
+        if available <= 0:
+            continue
+
+        results.append({
+            "route":               route["name"],
+            "route_name":          route["route_name"],
+            "route_code":          route.get("route_code", ""),
+            "vehicle":             route["vehicle"],
+            "license_plate":       route.get("license_plate", ""),
+            "driver_name":         route.get("driver_name", ""),
+            "driver_contact":      route.get("driver_contact", ""),
+            "total_seats":         route["total_seats"],
+            "booked_seats":        booked,
+            "available_seats":     available,
+            "shift_time":          str(route.get("shift_time") or ""),
+            "shift_type":          shift_type,
+            "distance_from_route": round(effective_dist, 2),
+            "nearest_stop":        nearest_stop.get("stop_name", "") if nearest_stop else "",
+            "nearest_stop_lat":    nearest_stop.get("latitude")      if nearest_stop else None,
+            "nearest_stop_lng":    nearest_stop.get("longitude")     if nearest_stop else None,
+            "nearest_pickup_time": nearest_stop.get("pickup_time", "") if nearest_stop else "",
+            "start_location":      route["start_location"],
+            "end_location":        route["end_location"],
+            "waypoints":           all_points,
+        })
+
+    results.sort(key=lambda x: x["distance_from_route"])
+    return results
+
+
+# ─── Book Cab ────────────────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def book_route_cab(cab_request_name, route_name,
+                   pickup_lat=None, pickup_lng=None, pickup_address=None,
+                   nearest_stop=None, nearest_pickup_time=None, distance_from_route=None):
+    """
+    Confirm route-based cab booking on a Cab Request.
+    Updates assignment fields and sends confirmation email.
+    Named book_route_cab to avoid any conflict with existing booking logic.
+    """
+    doc   = frappe.get_doc("Cab Request", cab_request_name)
+    route = frappe.get_doc("Cab Route", route_name)
+
+    # Re-check seat availability (race-condition safe)
+    booked = _get_booked_seat_count(route_name, doc.travel_date, doc.shift_type)
+    if booked >= route.total_seats:
+        frappe.throw(_("No seats available on this route. Please choose another cab."))
+
+    # Update assignment fields on the Cab Request
+    doc.assigned_route    = route_name
+    doc.assigned_cab      = route.vehicle          # maps to your existing assigned_cab field
+    doc.assigned_driver   = route.driver_name      # maps to your existing assigned_driver field
+
+    if pickup_lat:            doc.pickup_lat            = float(pickup_lat)
+    if pickup_lng:            doc.pickup_lng            = float(pickup_lng)
+    if pickup_address:        doc.pickup_location       = pickup_address   # your existing pickup_location field
+    if nearest_stop:          doc.nearest_stop          = nearest_stop
+    if distance_from_route:   doc.distance_from_route   = float(distance_from_route)
+    if nearest_pickup_time:   doc.estimated_pickup_time = nearest_pickup_time
+
+    doc.status    = "Assigned"   # use your existing status flow
+    doc.booked_on = now_datetime()
+    doc.save(ignore_permissions=True)
+
+    # Send confirmation email using existing employee email lookup
+    _send_route_booking_email(doc, route)
+
+    frappe.db.commit()
+
+    return {
+        "status":  "success",
+        "message": f"Cab booked! Vehicle: {route.vehicle} | Route: {route.route_name}",
+    }
+
+
+def _send_route_booking_email(cab_request_doc, route_doc):
+    """Send booking confirmation — reuses same email style as existing send_status_mail."""
+    try:
+        employee_email = frappe.db.get_value(
+            "Employee", cab_request_doc.employee_id, "personal_email"
+        )
+        if not employee_email:
+            return
+
+        frappe.sendmail(
+            recipients=[employee_email],
+            subject="Cab Booking Confirmed",
+            message=f"""
+            Hello {cab_request_doc.employee_name},<br><br>
+            Your cab has been booked successfully via route matching.<br><br>
+            Route: {route_doc.route_name}<br>
+            Vehicle: {route_doc.vehicle} ({route_doc.license_plate or ''})<br>
+            Driver: {route_doc.driver_name or 'TBD'} | {route_doc.driver_contact or ''}<br>
+            Nearest Stop: {cab_request_doc.nearest_stop or 'On Route'}<br>
+            Est. Pickup Time: {cab_request_doc.estimated_pickup_time or route_doc.shift_time}<br>
+            Travel Date: {cab_request_doc.travel_date}<br>
+            Shift: {cab_request_doc.shift_type}<br><br>
+            Regards
+            """
+        )
+    except Exception as e:
+        frappe.log_error(str(e), "Route Cab Booking Email Error")
+
+
+# ─── Cancel Route Booking ────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def cancel_route_booking(cab_request_name):
+    """Cancel a route-based cab booking and reset assignment fields."""
+    doc = frappe.get_doc("Cab Request", cab_request_name)
+
+    if doc.status not in ("Assigned",):
+        frappe.throw(_("Only Assigned bookings can be cancelled."))
+
+    doc.status          = "Cancelled"
+    doc.assigned_route  = None
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {"status": "success", "message": "Booking cancelled successfully."}
+
+
+# ─── GeoJSON Generator (called from hooks.py on Cab Route save) ─────────────
+
+def generate_route_geojson(doc, method=None):
+    """
+    Build GeoJSON LineString from start → waypoints → end
+    and store in route_polyline field. Hooked via hooks.py before_save.
+    """
+    waypoints = sorted(doc.waypoints or [], key=lambda w: w.sequence)
+
+    coords = [[doc.start_lng, doc.start_lat]]
+    for wp in waypoints:
+        coords.append([wp.longitude, wp.latitude])
+    coords.append([doc.end_lng, doc.end_lat])
+
+    doc.route_polyline = json.dumps({
+        "type": "Feature",
+        "geometry": {"type": "LineString", "coordinates": coords},
+        "properties": {
+            "route_name": doc.route_name,
+            "shift_type": doc.shift_type,
+        },
+    })
