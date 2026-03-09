@@ -1,8 +1,18 @@
 {
- "charts": [],
- "content": "[{\"id\":\"Isclp58i2X\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Manager dashboard</span>\",\"col\":12}},{\"id\":\"hnwn_msMjh\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Pending requests\",\"col\":4}},{\"id\":\"vQR3s4jeUJ\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Completed trips\",\"col\":4}},{\"id\":\"wynuuQS65t\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cab request\",\"col\":3}},{\"id\":\"0oooOeg0ni\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Approved rides\",\"col\":4}},{\"id\":\"XdCacouPNY\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed rides\",\"col\":4}}]",
+ "charts": [
+  {
+   "chart_name": "Cab Expense Report Chart",
+   "label": "Cab Expense Report Chart"
+  }
+ ],
+ "content": "[{\"id\":\"Isclp58i2X\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Booking Details</b></span>\",\"col\":12}},{\"id\":\"pLXJldzs1w\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Manager dashboard\",\"col\":12}},{\"id\":\"gxmhKxp1z1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"uA9MJggB9t\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manager live Tracking\",\"col\":3}},{\"id\":\"kVlXuBohhi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cab Expense Reports\",\"col\":3}},{\"id\":\"fgC2hCust1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"SWLrZNgobF\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cab Expense Report Chart\",\"col\":12}}]",
  "creation": "2026-02-19 16:30:30.671458",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Manager dashboard",
+   "label": "Manager dashboard"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -13,35 +23,15 @@
  "is_hidden": 0,
  "label": "Manager dashboard",
  "links": [],
- "modified": "2026-02-19 19:19:45.866737",
+ "modified": "2026-03-03 14:38:00.406283",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Manager dashboard",
- "number_cards": [
-  {
-   "label": "Pending requests",
-   "number_card_name": "Pending Requests"
-  },
-  {
-   "label": "Completed trips",
-   "number_card_name": "Completed Trips"
-  }
- ],
+ "number_cards": [],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
- "quick_lists": [
-  {
-   "document_type": "Cab Request",
-   "label": "Approved rides",
-   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Approved\",false]]"
-  },
-  {
-   "document_type": "Cab Request",
-   "label": "Completed rides",
-   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Completed\",false]]"
-  }
- ],
+ "quick_lists": [],
  "roles": [
   {
    "role": "Administrator"
@@ -55,10 +45,17 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Cab request",
-   "link_to": "Cab Request",
-   "stats_filter": "[]",
-   "type": "DocType"
+   "label": "Cab Expense Reports",
+   "link_to": "Cab Expense Report",
+   "report_ref_doctype": "Cab Vendor Invoice",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Manager live Tracking",
+   "type": "URL",
+   "url": "http://192.168.1.86:8000/manager_dashboard"
   }
  ],
  "title": "Manager dashboard"

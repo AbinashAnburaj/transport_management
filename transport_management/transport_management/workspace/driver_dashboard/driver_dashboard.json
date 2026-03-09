@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"7iLmMM8Bav\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Assigned Trips Count\",\"col\":4}},{\"id\":\"-EZI-hb-AH\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Completed Trips\",\"col\":4}},{\"id\":\"Ib-OqL8r-v\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Driver Dashboard</span>\",\"col\":12}},{\"id\":\"hC4hV610fS\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Assigned Trips\",\"col\":4}},{\"id\":\"d0_H90F_Bn\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed Trips \",\"col\":4}}]",
+ "content": "[{\"id\":\"EQ8NI87oKW\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b></b></span><span class=\\\"h2\\\">Driver Dashboard</span>\",\"col\":12}},{\"id\":\"rx33hDGFgQ\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"x8S7AVmpi1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Assinged Trip\",\"col\":4}},{\"id\":\"EID0ZkDHhl\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Completed Trips\",\"col\":4}},{\"id\":\"B3U9R9_fVy\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Cancelled Trip\",\"col\":4}},{\"id\":\"k1bU3xz-kU\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"7dOZIo4ZlB\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Assigned Trips\",\"col\":4}},{\"id\":\"d0_H90F_Bn\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed Trips \",\"col\":4}},{\"id\":\"94AwSQ5xbs\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Cab Request\",\"col\":4}},{\"id\":\"7gl742PfZ6\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"8jH_jiQdNT\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Driver Route Tracking\",\"col\":6}},{\"id\":\"BJW41QMADX\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Vehicle Log\",\"col\":3}}]",
  "creation": "2026-02-18 15:18:35.048902",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,18 +13,22 @@
  "is_hidden": 0,
  "label": "Driver Dashboard",
  "links": [],
- "modified": "2026-02-23 13:12:10.658766",
+ "modified": "2026-03-03 14:35:42.561496",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Driver Dashboard",
  "number_cards": [
   {
-   "label": "Assigned Trips Count",
-   "number_card_name": "Approved Trips"
+   "label": "Assinged Trip",
+   "number_card_name": "Assinged Trip"
   },
   {
    "label": "Completed Trips",
    "number_card_name": "Completed Trips"
+  },
+  {
+   "label": "Cancelled Trip",
+   "number_card_name": "Cancelled Trip"
   }
  ],
  "owner": "Administrator",
@@ -40,6 +44,11 @@
    "document_type": "Cab Request",
    "label": "Assigned Trips",
    "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Assigned\",false]]"
+  },
+  {
+   "document_type": "Cab Request",
+   "label": "Cab Request",
+   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Cancelled\",false]]"
   }
  ],
  "roles": [
@@ -48,6 +57,22 @@
   }
  ],
  "sequence_id": 1.0,
- "shortcuts": [],
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Driver Route Tracking",
+   "type": "URL",
+   "url": "http://192.168.1.86:8000/driver_dashboard"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Vehicle Log",
+   "link_to": "Vehicle Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
  "title": "Driver Dashboard"
 }

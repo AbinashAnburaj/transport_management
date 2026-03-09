@@ -1,3 +1,27 @@
+JAVA scripted
+frappe.ui.form.on('Cab Request', {
+
+    onload: function(frm) {
+        // Only for new document
+        if (!frm.is_new()) return;
+
+        frappe.call({
+            method: "transport_management.transport_management.doctype.cab_request.cab_request.get_employee_basic_details",
+            callback: function(r) {
+                if (r.message) {
+                    frm.set_value("employee_id", r.message.name);
+                    frm.set_value("employee_name", r.message.employee_name);
+                    frm.set_value("department", r.message.department);
+                    frm.set_value("contact_no", r.message.cell_number);
+                    }
+            }
+        });
+    }
+
+});
+
+#####################################################CAB_REQUEST.PY#############################################################################3
+
 import frappe
 from frappe.model.document import Document
 from frappe.utils import now_datetime, get_datetime, add_to_date
@@ -254,10 +278,13 @@ def get_permission_query_conditions(user):
     conditions = []
 
     if "Driver" in roles:
-        driver_candidates = _get_driver_identity_candidates(user)
-        if driver_candidates:
-            escaped = ", ".join(frappe.db.escape(v) for v in sorted(driver_candidates))
-            conditions.append(f"`tabCab Request`.assigned_driver IN ({escaped})")
+        employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+        if employee_id:
+            driver_name = frappe.db.get_value("Driver", {"employee": employee_id}, "name")
+            if driver_name:
+                conditions.append(f"`tabCab Request`.assigned_driver = '{driver_name}'")
+            else:
+                conditions.append("1=0")
         else:
             conditions.append("1=0")
 
@@ -281,9 +308,11 @@ def has_permission(doc, ptype=None, user=None):
         return True
 
     if "Driver" in roles:
-        driver_candidates = _get_driver_identity_candidates(user)
-        if getattr(doc, "assigned_driver", None) in driver_candidates:
-            return True
+        employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+        if employee_id:
+            driver_name = frappe.db.get_value("Driver", {"employee": employee_id}, "name")
+            if getattr(doc, "driver", None) == driver_name:
+                return True
 
     if "Employee" in roles:
         employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
@@ -291,60 +320,6 @@ def has_permission(doc, ptype=None, user=None):
             return True
 
     return doc.owner == user
-
-
-def _get_driver_identity_candidates(user):
-    """
-    Return all possible identifiers that might be stored in Cab Request.assigned_driver
-    for a driver user.
-    """
-    candidates = set()
-    candidates.add(user)
-
-    # 1) Direct Driver mapping by custom_user (works even when Employee link is missing)
-    linked_driver = frappe.db.get_value("Driver", {"custom_user": user}, "name")
-    if linked_driver:
-        candidates.add(linked_driver)
-        driver_full_name = frappe.db.get_value("Driver", linked_driver, "full_name")
-        if driver_full_name:
-            candidates.add(driver_full_name)
-        linked_employee = frappe.db.get_value("Driver", linked_driver, "employee")
-        if linked_employee:
-            candidates.add(linked_employee)
-            linked_employee_name = frappe.db.get_value("Employee", linked_employee, "employee_name")
-            if linked_employee_name:
-                candidates.add(linked_employee_name)
-
-    # 2) Employee -> Driver mapping
-    employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
-    if employee_id:
-        candidates.add(employee_id)
-        emp_name = frappe.db.get_value("Employee", employee_id, "employee_name")
-        if emp_name:
-            candidates.add(emp_name)
-
-        driver_id = frappe.db.get_value("Driver", {"employee": employee_id}, "name")
-        if driver_id:
-            candidates.add(driver_id)
-            driver_full_name = frappe.db.get_value("Driver", driver_id, "full_name")
-            if driver_full_name:
-                candidates.add(driver_full_name)
-
-    # 3) Fallback by User full name -> Driver.full_name
-    user_full_name = frappe.db.get_value("User", user, "full_name")
-    if user_full_name:
-        candidates.add(user_full_name)
-        driver_by_name = frappe.db.get_value("Driver", {"full_name": user_full_name}, "name")
-        if driver_by_name:
-            candidates.add(driver_by_name)
-            employee_by_name = frappe.db.get_value("Driver", driver_by_name, "employee")
-            if employee_by_name:
-                candidates.add(employee_by_name)
-                employee_name = frappe.db.get_value("Employee", employee_by_name, "employee_name")
-                if employee_name:
-                    candidates.add(employee_name)
-
-    return {c for c in candidates if c}
 
 
 # =========================================================
@@ -829,10 +804,9 @@ def verify_otp_and_start_trip(docname, entered_otp):
         }
 
     # OTP correct — move to In Trip, clear OTP (one-time use)
-    # `otp` is an INT column in DB, so clear with 0 (not empty string).
     frappe.db.set_value("Cab Request", docname, {
         "status":   "In Trip",
-        "otp": 0,
+        "otp": "",
     })
     frappe.db.commit()
 
@@ -947,9 +921,8 @@ def get_booking_display_details(cab_request_name):
 
 @frappe.whitelist()
 def get_all_routes_for_manager():
-    roles = frappe.get_roles()
-    if "Fleet Manager" not in roles and "System Manager" not in roles:
-        frappe.throw(_("Access denied."), frappe.PermissionError)
+    if not frappe.has_permission("Cab Route", "read"):
+        frappe.throw("Not permitted", frappe.PermissionError)
 
     today = frappe.utils.today()
 
@@ -964,7 +937,6 @@ def get_all_routes_for_manager():
             "start_location", "start_lat", "start_lng",
             "end_location",   "end_lat",   "end_lng",
         ],
-        ignore_permissions=True,
     )
 
     routes = []
@@ -974,7 +946,6 @@ def get_all_routes_for_manager():
             filters={"parent": r["name"]},
             fields=["stop_name", "latitude", "longitude", "pickup_time", "sequence"],
             order_by="sequence asc",
-            ignore_permissions=True,
         )
 
         all_points = (
@@ -1184,40 +1155,12 @@ def get_driver_route_details():
     route_data = {
         "name":           route_name,
         "route_name":     route.route_name or route_name,
-        "vehicle":        route.vehicle or "",
-        "vehicle_no":     route.vehicle or "",
-        "assigned_cab":   route.vehicle or "",
-        "driver_name":    route.driver_name or "",
-        "assigned_driver": route.driver_name or "",
-        "driver_contact": route.driver_contact or "",
+        "vehicle":        route.vehicle     or "",
         "shift_time":     str(route.shift_time or ""),
         "start_location": route.start_location or "",
         "end_location":   route.end_location   or "",
         "waypoints":      all_points,
     }
-
-    # Backfill missing route-level driver/vehicle values from today's assigned
-    # cab requests so dashboard custom blocks can still render details.
-    if not route_data["vehicle"] or not route_data["driver_name"]:
-        fallback_req = frappe.get_all(
-            "Cab Request",
-            filters={
-                "assigned_route": route_name,
-                "travel_date": today,
-                "status": ["in", ["Assigned", "In Trip"]],
-            },
-            fields=["assigned_cab", "assigned_driver"],
-            limit=1,
-        )
-        if fallback_req:
-            fr = fallback_req[0]
-            if not route_data["vehicle"]:
-                route_data["vehicle"] = fr.get("assigned_cab") or ""
-                route_data["vehicle_no"] = route_data["vehicle"]
-                route_data["assigned_cab"] = route_data["vehicle"]
-            if not route_data["driver_name"]:
-                route_data["driver_name"] = fr.get("assigned_driver") or ""
-                route_data["assigned_driver"] = route_data["driver_name"]
 
     # ── Load passengers — try all candidates ─────────────────────────────
     passengers_raw = []
@@ -1305,3 +1248,384 @@ def generate_route_geojson(doc, method=None):
         })
     except Exception as e:
         frappe.log_error(str(e), "Cab Route GeoJSON Error")
+
+##################################j son#################################################################################################33333
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CAB-BOOK-{###}",
+ "creation": "2026-02-18 10:33:55.493832",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "requester_details_section",
+  "employee_id",
+  "employee_name",
+  "employee_mail_id",
+  "department",
+  "contact_no",
+  "shift_type",
+  "shift_time",
+  "booking_datetime",
+  "trip_details_section",
+  "pickup_location",
+  "drop_location",
+  "assigned_driver",
+  "assigned_cab",
+  "status",
+  "pickup_lat",
+  "pickup_lng",
+  "drop_lat",
+  "drop_lng",
+  "allocation_section",
+  "driver_id",
+  "driver_number",
+  "vehicle_number",
+  "vehicle",
+  "section_break_olzy",
+  "vendor",
+  "rate",
+  "billing_month",
+  "invoice_link",
+  "trip_execution_section",
+  "start_odometer",
+  "end_odometer",
+  "total_distance",
+  "enter_otp",
+  "verify",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "requester_details_section",
+   "fieldtype": "Section Break",
+   "label": "Requester Details"
+  },
+  {
+   "fetch_from": "employee_id.department",
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Department",
+   "permlevel": 1
+  },
+  {
+   "fetch_from": "employee_id.cell_number",
+   "fieldname": "contact_no",
+   "fieldtype": "Data",
+   "label": "Contact No"
+  },
+  {
+   "fieldname": "trip_details_section",
+   "fieldtype": "Section Break",
+   "label": "Trip Details"
+  },
+  {
+   "fieldname": "allocation_section",
+   "fieldtype": "Section Break",
+   "label": "Allocation"
+  },
+  {
+   "fetch_from": "employee_id.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name"
+  },
+  {
+   "fieldname": "pickup_location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Pickup Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "booking_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Booking Date/Time",
+   "reqd": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trip Status",
+   "options": "Pending\nAssigned\nIn Trip\nCompleted\nCancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "driver_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Driver Id",
+   "options": "Driver",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "assigned_cab",
+   "fieldtype": "Data",
+   "label": "Assigned Cab",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "assigned_driver",
+   "fieldtype": "Link",
+   "label": "Assigned Driver",
+   "options": "Driver",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "drop_location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Drop Location",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee_name.user_id",
+   "fieldname": "employee_id",
+   "fieldtype": "Link",
+   "label": "Employee Id",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "pickup_lat",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Pickup Latitude",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "pickup_lng",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Pickup Longitude",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "drop_lat",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Drop Latitude",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "drop_lng",
+   "fieldtype": "Float",
+   "hidden": 1,
+   "label": "Drop Longitude",
+   "permlevel": 1
+  },
+  {
+   "fetch_from": "driver_id.cell_number",
+   "fieldname": "driver_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Driver Number",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "shift_type",
+   "fieldtype": "Link",
+   "label": "Shift type",
+   "options": "Shift Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_olzy",
+   "fieldtype": "Section Break",
+   "label": "Vendor Details"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Rate",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "billing_month",
+   "fieldtype": "Date",
+   "label": "Billing Month",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "invoice_link",
+   "fieldtype": "Data",
+   "label": "Invoice Link",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "trip_execution_section",
+   "fieldtype": "Section Break",
+   "label": "Trip Execution"
+  },
+  {
+   "fieldname": "start_odometer",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Start Odometer",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "end_odometer",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "End Odometer",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "total_distance",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Distance",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Link",
+   "label": "Vendor",
+   "options": "Supplier",
+   "permlevel": 1
+  },
+  {
+   "fetch_from": "vehicle.license_plate",
+   "fieldname": "vehicle_number",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Number",
+   "options": "Vehicle",
+   "permlevel": 1
+  },
+  {
+   "fetch_from": "vehicle_number.model",
+   "fieldname": "vehicle",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Vehicle",
+   "options": "Vehicle",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "enter_otp",
+   "fieldtype": "Data",
+   "label": "Enter OTP"
+  },
+  {
+   "fetch_from": "employee_id.personal_email",
+   "fieldname": "employee_mail_id",
+   "fieldtype": "Data",
+   "label": "Employee Mail Id",
+   "options": "Email",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "shift_type.start_time",
+   "fieldname": "shift_time",
+   "fieldtype": "Data",
+   "label": "Shift time",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "verify",
+   "fieldtype": "Check",
+   "label": "Verify"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cab Request",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-03-01 21:57:41.162193",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Cab Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Driver",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Fleet Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
