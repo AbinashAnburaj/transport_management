@@ -1,13 +1,18 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:{route_name}-{####}",
  "creation": "2026-02-24 18:05:03.236143",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "section_break_hanj",
   "route_name",
+  "driver_id",
+  "driver_name",
+  "driver_contact",
   "vehicle",
+  "vehicle_status",
   "start_location",
   "start_lat",
   "start_lng",
@@ -19,7 +24,8 @@
   "total_seats",
   "shift_time",
   "shift_type",
-  "status"
+  "status",
+  "distance_travelled"
  ],
  "fields": [
   {
@@ -99,15 +105,46 @@
    "fieldtype": "Select",
    "label": "Status",
    "options": "Active\nInactive"
+  },
+  {
+   "fetch_from": "driver_id.full_name",
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "label": "Driver Name",
+   "options": "Driver"
+  },
+  {
+   "fetch_from": "driver_id.cell_number",
+   "fieldname": "driver_contact",
+   "fieldtype": "Data",
+   "label": "Driver Contact"
+  },
+  {
+   "fieldname": "distance_travelled",
+   "fieldtype": "Float",
+   "label": "Distance Travelled"
+  },
+  {
+   "fieldname": "driver_id",
+   "fieldtype": "Link",
+   "label": "Driver Id",
+   "options": "Driver"
+  },
+  {
+   "fetch_from": "vehicle.vehicle_status",
+   "fieldname": "vehicle_status",
+   "fieldtype": "Data",
+   "label": "Vehicle Status"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-24 19:10:30.239447",
+ "modified": "2026-02-28 13:20:32.177589",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Cab Route",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

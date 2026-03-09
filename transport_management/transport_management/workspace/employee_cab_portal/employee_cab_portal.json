@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"n7WyZ5iG2h\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Employee Cab Portal</span>\",\"col\":12}},{\"id\":\"rgUILtIvxz\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Pending Requests\",\"col\":4}},{\"id\":\"rQmQD-taLg\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Approved Trips\",\"col\":4}},{\"id\":\"SQaGy-BzIX\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Completed Trips\",\"col\":4}},{\"id\":\"Afn8eGDCvR\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Pending Request\",\"col\":4}},{\"id\":\"TCt79fysTJ\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Approved Trips\",\"col\":4}},{\"id\":\"gN9oJNqU_a\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed Trips\",\"col\":4}},{\"id\":\"_P-CQwQlp-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Cab Booking\",\"col\":4}}]",
+ "content": "[{\"id\":\"n7WyZ5iG2h\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Employee Cab Portal</span>\",\"col\":12}},{\"id\":\"SlNGiN5umk\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"voViBmCgVo\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Trip Details</b></span>\",\"col\":12}},{\"id\":\"bQdmtwYZEn\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"HjNV-c6-n6\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Assinged Trip\",\"col\":4}},{\"id\":\"SQaGy-BzIX\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Completed Trips\",\"col\":4}},{\"id\":\"_P-CQwQlp-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Cab Booking\",\"col\":4}},{\"id\":\"1v0pFVyQa8\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Assigned Trips\",\"col\":4}},{\"id\":\"gN9oJNqU_a\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Completed Trips\",\"col\":4}}]",
  "creation": "2026-02-18 13:55:05.029633",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,18 +13,14 @@
  "is_hidden": 0,
  "label": "Employee Cab Portal",
  "links": [],
- "modified": "2026-02-23 13:12:29.798549",
+ "modified": "2026-03-03 10:20:16.973047",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Employee Cab Portal",
  "number_cards": [
   {
-   "label": "Approved Trips",
-   "number_card_name": "Approved Trips"
-  },
-  {
-   "label": "Pending Requests",
-   "number_card_name": "Pending Requests"
+   "label": "Assinged Trip",
+   "number_card_name": "Assinged Trip"
   },
   {
    "label": "Completed Trips",
@@ -37,13 +33,8 @@
  "quick_lists": [
   {
    "document_type": "Cab Request",
-   "label": "Approved Trips",
-   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Approved\",false]]"
-  },
-  {
-   "document_type": "Cab Request",
-   "label": "Pending Request",
-   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Pending\",false]]"
+   "label": "Assigned Trips",
+   "quick_list_filter": "[[\"Cab Request\",\"status\",\"=\",\"Assigned\",false]]"
   },
   {
    "document_type": "Cab Request",

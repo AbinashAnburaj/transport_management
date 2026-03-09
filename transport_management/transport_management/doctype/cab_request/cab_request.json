@@ -10,32 +10,27 @@
   "requester_details_section",
   "employee_id",
   "employee_name",
+  "employee_mail_id",
   "department",
   "contact_no",
   "shift_type",
+  "shift_time",
+  "booking_datetime",
   "trip_details_section",
   "pickup_location",
   "drop_location",
-  "purpose",
-  "booking_datetime",
-  "pickup_lat",
   "assigned_driver",
   "assigned_cab",
+  "status",
+  "pickup_lat",
   "pickup_lng",
   "drop_lat",
   "drop_lng",
-  "city",
-  "matched_routes",
-  "assigned_route",
-  "assigned_vehicle",
   "allocation_section",
-  "status",
-  "rejection_reason",
   "driver_id",
   "driver_number",
-  "cab",
-  "odometer_fields",
-  "amended_from",
+  "vehicle_number",
+  "vehicle",
   "section_break_olzy",
   "vendor",
   "rate",
@@ -45,12 +40,7 @@
   "start_odometer",
   "end_odometer",
   "total_distance",
-  "waiting_time",
-  "extra_charges",
-  "internal_cost_section",
-  "rate_per_km",
-  "base_fair",
-  "total_cost"
+  "amended_from"
  ],
  "fields": [
   {
@@ -63,8 +53,7 @@
    "fieldname": "department",
    "fieldtype": "Data",
    "label": "Department",
-   "permlevel": 1,
-   "read_only": 1
+   "permlevel": 1
   },
   {
    "fetch_from": "employee_id.cell_number",
@@ -78,17 +67,12 @@
    "label": "Trip Details"
   },
   {
-   "fieldname": "purpose",
-   "fieldtype": "Small Text",
-   "label": "Purpose"
-  },
-  {
    "fieldname": "allocation_section",
    "fieldtype": "Section Break",
    "label": "Allocation"
   },
   {
-   "fetch_from": "employee_id.first_name",
+   "fetch_from": "employee_id.employee_name",
    "fieldname": "employee_name",
    "fieldtype": "Data",
    "label": "Employee Name"
@@ -108,34 +92,19 @@
    "reqd": 1
   },
   {
+   "default": "Pending",
    "fieldname": "status",
    "fieldtype": "Select",
-   "label": "Status",
-   "options": "Pending\nAssigned\nIn Trip\nCompleted\nRejected"
+   "label": "Trip Status",
+   "options": "Pending\nAssigned\nIn Trip\nCompleted\nCancelled",
+   "read_only": 1
   },
   {
    "fieldname": "driver_id",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Driver Id",
    "options": "Driver",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Cab Request",
-   "permlevel": 1,
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
-   "fieldname": "cab",
-   "fieldtype": "Link",
-   "label": "Cab",
-   "options": "Vehicle",
    "permlevel": 1
   },
   {
@@ -147,15 +116,11 @@
   },
   {
    "fieldname": "assigned_driver",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Assigned Driver",
+   "options": "Driver",
    "permlevel": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "rejection_reason",
-   "fieldtype": "Small Text",
-   "label": "Rejection Reason"
   },
   {
    "fieldname": "drop_location",
@@ -203,6 +168,7 @@
    "fetch_from": "driver_id.cell_number",
    "fieldname": "driver_number",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Driver Number",
    "permlevel": 1
   },
@@ -210,18 +176,13 @@
    "fieldname": "shift_type",
    "fieldtype": "Link",
    "label": "Shift type",
-   "options": "Shift Type"
-  },
-  {
-   "fetch_from": "cab.last_odometer",
-   "fieldname": "odometer_fields",
-   "fieldtype": "Int",
-   "label": "Odometer fields",
-   "permlevel": 1
+   "options": "Shift Type",
+   "reqd": 1
   },
   {
    "fieldname": "section_break_olzy",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Vendor Details"
   },
   {
    "fieldname": "rate",
@@ -249,62 +210,22 @@
   {
    "fieldname": "start_odometer",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Start Odometer",
    "permlevel": 1
   },
   {
    "fieldname": "end_odometer",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "End Odometer",
    "permlevel": 1
   },
   {
    "fieldname": "total_distance",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Distance",
-   "permlevel": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "waiting_time",
-   "fieldtype": "Float",
-   "label": "Waiting Time",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "extra_charges",
-   "fieldtype": "Currency",
-   "label": "Extra Charges",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "city",
-   "fieldtype": "Link",
-   "label": "City",
-   "options": "Territory",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "internal_cost_section",
-   "fieldtype": "Section Break",
-   "label": "Internal Cost"
-  },
-  {
-   "fieldname": "rate_per_km",
-   "fieldtype": "Currency",
-   "label": "Rate per KM",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "base_fair",
-   "fieldtype": "Currency",
-   "label": "Base Fair",
-   "permlevel": 1
-  },
-  {
-   "fieldname": "total_cost",
-   "fieldtype": "Currency",
-   "label": "Total Cost",
    "permlevel": 1,
    "read_only": 1
   },
@@ -316,28 +237,55 @@
    "permlevel": 1
   },
   {
-   "fieldname": "matched_routes",
+   "fetch_from": "vehicle.license_plate",
+   "fieldname": "vehicle_number",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vehicle Number",
+   "options": "Vehicle",
+   "permlevel": 1
+  },
+  {
+   "fetch_from": "vehicle_number.model",
+   "fieldname": "vehicle",
    "fieldtype": "Data",
-   "label": "Matched Routes"
+   "in_list_view": 1,
+   "label": "Vehicle",
+   "options": "Vehicle",
+   "permlevel": 1
   },
   {
-   "fieldname": "assigned_route",
-   "fieldtype": "Link",
-   "label": "Assigned Route",
-   "options": "Cab Route"
+   "fetch_from": "employee_id.personal_email",
+   "fieldname": "employee_mail_id",
+   "fieldtype": "Data",
+   "label": "Employee Mail Id",
+   "options": "Email",
+   "read_only": 1
   },
   {
-   "fieldname": "assigned_vehicle",
+   "fetch_from": "shift_type.start_time",
+   "fieldname": "shift_time",
+   "fieldtype": "Data",
+   "label": "Shift time",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
    "fieldtype": "Link",
-   "label": "Assigned Vehicle",
-   "options": "Vehicle"
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cab Request",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-24 20:50:10.835552",
+ "modified": "2026-03-02 21:34:18.106682",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Cab Request",
