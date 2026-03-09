@@ -23,23 +23,32 @@ app_license = "mit"
 
 permission_query_conditions = {
     "Cab Request": "transport_management.transport_management.doctype.cab_request.cab_request.get_permission_query_conditions",
+    "Vehicle Log": "transport_management.transport_management.doctype.vehicle_log.vehicle_log.get_permission_query_conditions",
  }
 
 has_permission = {
     "Cab Request": "transport_management.transport_management.doctype.cab_request.cab_request.has_permission",
+    "Vehicle Log": "transport_management.transport_management.doctype.vehicle_log.vehicle_log.has_permission",
+    "File": "transport_management.transport_management.permissions.file.has_permission",
 }
-doctype_js = {"Cab Request": "public/js/cab_request.js"}
+doctype_js = {
+    "Cab Request": "public/js/map.js",
+    "Vehicle Log": "public/js/vehicle_log.js",
+}
+
+override_doctype_class = {
+    "Vehicle Log": "transport_management.transport_management.doctype.vehicle_log.vehicle_log.VehicleLog",
+}
 
 # --------------------------
 # Document Events
 # --------------------------
 
-# We moved all logic (validation, emails, etc.) into the Controller Class (cab_request.py).
-# So, we do NOT need doc_events here anymore. Keeping them would cause errors.
-
-
 doc_events = {
-    "Cab Request": {
-        "after_save": "transport_management.api.whatsapp.notify_users"
+    "Vehicle": {
+        "on_update": "transport_management.transport_management.api.vehicle.sync_vehicle_status"
+    },
+    "Has Role": {
+        "after_insert": "transport_management.transport_management.doctype.vehicle_log.vehicle_log.ensure_vehicle_log_permission_for_driver_role"
     }
 }

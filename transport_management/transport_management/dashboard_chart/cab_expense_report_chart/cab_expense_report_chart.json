@@ -1,0 +1,49 @@
+{
+ "chart_name": "Cab Expense Report Chart",
+ "chart_type": "Report",
+ "creation": "2026-02-28 17:45:23.748681",
+ "currency": "INR",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart",
+ "dynamic_filters_json": "{}",
+ "filters_json": "{}",
+ "group_by_type": "Count",
+ "idx": 0,
+ "is_public": 0,
+ "is_standard": 1,
+ "modified": "2026-03-03 14:40:03.893735",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Cab Expense Report Chart",
+ "number_of_groups": 0,
+ "owner": "Administrator",
+ "report_name": "Cab Expense Report",
+ "roles": [
+  {
+   "role": "Fleet Manager"
+  },
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Administrator"
+  }
+ ],
+ "show_values_over_chart": 1,
+ "time_interval": "Yearly",
+ "timeseries": 0,
+ "timespan": "Last Year",
+ "type": "Donut",
+ "use_report_chart": 0,
+ "x_field": "cab_route",
+ "y_axis": [
+  {
+   "color": "#000000",
+   "y_field": "total_expense"
+  },
+  {
+   "color": "#449CF0",
+   "y_field": "total_expense"
+  }
+ ]
+}

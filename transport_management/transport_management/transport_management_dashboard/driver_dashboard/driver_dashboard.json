@@ -1,22 +1,25 @@
 {
-  "cards": [],
-  "charts": [
-    {
-      "chart": "Drivers chart",
-      "width": "Half"
-    }
-  ],
-  "creation": "2026-02-18 18:44:55.965111",
-  "dashboard_name": "Driver dashboard",
-  "docstatus": 0,
-  "doctype": "Dashboard",
-  "idx": 0,
-  "is_default": 0,
-  "is_standard": 1,
-  "modified": "2026-02-18 18:44:55.965111",
-  "modified_by": "Administrator",
-  "module": "Transport Management",
-  "name": "Driver dashboard",
-  "owner": "Administrator"
+ "cards": [
+  {
+   "card": "Your Vehicle Number"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Drivers chart",
+   "width": "Half"
+  }
+ ],
+ "creation": "2026-02-18 18:44:55.965111",
+ "dashboard_name": "Driver dashboard",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "modified": "2026-02-26 13:33:21.316075",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Driver dashboard",
+ "owner": "Administrator"
 }
-
