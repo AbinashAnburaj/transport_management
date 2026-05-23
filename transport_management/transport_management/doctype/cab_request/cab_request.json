@@ -176,8 +176,7 @@
    "fieldname": "shift_type",
    "fieldtype": "Link",
    "label": "Shift type",
-   "options": "Shift Type",
-   "reqd": 1
+   "options": "Shift Type"
   },
   {
    "fieldname": "section_break_olzy",
@@ -267,8 +266,7 @@
    "fieldname": "shift_time",
    "fieldtype": "Data",
    "label": "Shift time",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "amended_from",

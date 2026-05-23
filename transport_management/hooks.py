@@ -52,3 +52,18 @@ doc_events = {
         "after_insert": "transport_management.transport_management.doctype.vehicle_log.vehicle_log.ensure_vehicle_log_permission_for_driver_role"
     }
 }
+
+# --------------------------
+# Scheduled Tasks
+# --------------------------
+
+scheduler_events = {
+    "daily": [
+        "transport_management.transport_management.automation.compliance.daily_compliance_check",
+        "transport_management.transport_management.automation.maintenance.daily_maintenance_check",
+        "transport_management.transport_management.api.gps.purge_old_gps_logs",
+    ],
+    "monthly": [
+        "transport_management.transport_management.billing.vendor_billing.monthly_vendor_billing",
+    ],
+}
