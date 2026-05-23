@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "creation": "2026-05-22 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_compliance_alerts",
+  "enable_maintenance_alerts",
+  "recipients_section",
+  "alert_recipient_roles",
+  "additional_alert_emails",
+  "thresholds_section",
+  "compliance_warning_days",
+  "threshold_column",
+  "maintenance_warning_days",
+  "maintenance_section",
+  "default_service_interval_km",
+  "maintenance_column",
+  "service_odometer_alert_buffer_km",
+  "gps_section",
+  "gps_log_retention_days"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enable_compliance_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Compliance Expiry Alerts"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_maintenance_alerts",
+   "fieldtype": "Check",
+   "label": "Enable Maintenance Alerts"
+  },
+  {
+   "fieldname": "recipients_section",
+   "fieldtype": "Section Break",
+   "label": "Alert Recipients"
+  },
+  {
+   "default": "Fleet Manager\nSystem Manager",
+   "description": "Users holding these roles receive the daily alert digests. One role per line or comma-separated.",
+   "fieldname": "alert_recipient_roles",
+   "fieldtype": "Small Text",
+   "label": "Alert Recipient Roles"
+  },
+  {
+   "description": "Extra email addresses to copy on every digest. One per line or comma-separated.",
+   "fieldname": "additional_alert_emails",
+   "fieldtype": "Small Text",
+   "label": "Additional Alert Emails"
+  },
+  {
+   "fieldname": "thresholds_section",
+   "fieldtype": "Section Break",
+   "label": "Warning Thresholds"
+  },
+  {
+   "default": "30,15,7,1",
+   "description": "Comma-separated lead days for statutory document expiry. The largest value is the look-ahead window.",
+   "fieldname": "compliance_warning_days",
+   "fieldtype": "Data",
+   "label": "Compliance Warning Days"
+  },
+  {
+   "fieldname": "threshold_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "15,7,1",
+   "description": "Comma-separated lead days for service-due alerts. The largest value is the look-ahead window.",
+   "fieldname": "maintenance_warning_days",
+   "fieldtype": "Data",
+   "label": "Maintenance Warning Days"
+  },
+  {
+   "fieldname": "maintenance_section",
+   "fieldtype": "Section Break",
+   "label": "Maintenance Defaults"
+  },
+  {
+   "default": "10000",
+   "description": "Fallback service interval used when a Vehicle has no Service Interval (KM) set.",
+   "fieldname": "default_service_interval_km",
+   "fieldtype": "Int",
+   "label": "Default Service Interval (KM)"
+  },
+  {
+   "fieldname": "maintenance_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "500",
+   "description": "Raise a maintenance alert when a vehicle is within this many KM of its Next Service Odometer.",
+   "fieldname": "service_odometer_alert_buffer_km",
+   "fieldtype": "Int",
+   "label": "Service Odometer Alert Buffer (KM)"
+  },
+  {
+   "fieldname": "gps_section",
+   "fieldtype": "Section Break",
+   "label": "GPS Tracking"
+  },
+  {
+   "default": "30",
+   "description": "Vehicle GPS Log rows older than this many days are deleted by the daily purge job. Set 0 to disable purging.",
+   "fieldname": "gps_log_retention_days",
+   "fieldtype": "Int",
+   "label": "GPS Log Retention (Days)"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-05-22 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Transport Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Fleet Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

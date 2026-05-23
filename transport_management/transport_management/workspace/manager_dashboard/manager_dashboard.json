@@ -3,9 +3,13 @@
   {
    "chart_name": "Cab Expense Report Chart",
    "label": "Cab Expense Report Chart"
+  },
+  {
+   "chart_name": "Cab Requests by Status",
+   "label": "Cab Requests by Status"
   }
  ],
- "content": "[{\"id\":\"Isclp58i2X\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Booking Details</b></span>\",\"col\":12}},{\"id\":\"pLXJldzs1w\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Manager dashboard\",\"col\":12}},{\"id\":\"gxmhKxp1z1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"uA9MJggB9t\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manager live Tracking\",\"col\":3}},{\"id\":\"kVlXuBohhi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cab Expense Reports\",\"col\":3}},{\"id\":\"fgC2hCust1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"SWLrZNgobF\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Cab Expense Report Chart\",\"col\":12}}]",
+ "content": "[{\"id\": \"hdr00bookng\", \"type\": \"header\", \"data\": {\"text\": \"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Booking Details</b></span>\", \"col\": 12}}, {\"id\": \"blk00manage\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Manager dashboard\", \"col\": 12}}, {\"id\": \"spc00000001\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdr000kpis0\", \"type\": \"header\", \"data\": {\"text\": \"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Fleet KPIs</b></span>\", \"col\": 12}}, {\"id\": \"nc000active\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active Routes\", \"col\": 4}}, {\"id\": \"nc000intrip\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"In Trip Now\", \"col\": 4}}, {\"id\": \"nc000unbill\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Unbilled Completed Trips\", \"col\": 4}}, {\"id\": \"spc00000002\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdr00report\", \"type\": \"header\", \"data\": {\"text\": \"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Analytics &amp; Reports</b></span>\", \"col\": 12}}, {\"id\": \"sc000driver\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Driver Performance\", \"col\": 3}}, {\"id\": \"sc000tripan\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Trip Analytics\", \"col\": 3}}, {\"id\": \"sc000fuelan\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Fuel Analytics\", \"col\": 3}}, {\"id\": \"sc000vehuti\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Vehicle Utilization\", \"col\": 3}}, {\"id\": \"sc000billre\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Vendor Billing Reconciliation\", \"col\": 3}}, {\"id\": \"sc000cabexp\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Cab Expense Reports\", \"col\": 3}}, {\"id\": \"sc000livetr\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Manager live Tracking\", \"col\": 3}}, {\"id\": \"spc00000003\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdr00charts\", \"type\": \"header\", \"data\": {\"text\": \"<span style=\\\"font-size: 18px; letter-spacing: 0.18px;\\\"><b>Charts</b></span>\", \"col\": 12}}, {\"id\": \"ch000status\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Cab Requests by Status\", \"col\": 6}}, {\"id\": \"ch000expens\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Cab Expense Report Chart\", \"col\": 6}}]",
  "creation": "2026-02-19 16:30:30.671458",
  "custom_blocks": [
   {
@@ -23,11 +27,24 @@
  "is_hidden": 0,
  "label": "Manager dashboard",
  "links": [],
- "modified": "2026-03-03 14:38:00.406283",
+ "modified": "2026-05-22 13:30:00.000000",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Manager dashboard",
- "number_cards": [],
+ "number_cards": [
+  {
+   "label": "Active Routes",
+   "number_card_name": "Active Routes"
+  },
+  {
+   "label": "In Trip Now",
+   "number_card_name": "In Trip Now"
+  },
+  {
+   "label": "Unbilled Completed Trips",
+   "number_card_name": "Unbilled Completed Trips"
+  }
+ ],
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
@@ -55,7 +72,47 @@
    "doc_view": "List",
    "label": "Manager live Tracking",
    "type": "URL",
-   "url": "http://192.168.1.86:8000/manager_dashboard"
+   "url": "/manager_dashboard"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Driver Performance",
+   "link_to": "Driver Performance",
+   "report_ref_doctype": "Cab Request",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Trip Analytics",
+   "link_to": "Trip Analytics",
+   "report_ref_doctype": "Cab Request",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Fuel Analytics",
+   "link_to": "Fuel Analytics",
+   "report_ref_doctype": "Vehicle Log",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Vehicle Utilization",
+   "link_to": "Vehicle Utilization",
+   "report_ref_doctype": "Cab Request",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Vendor Billing Reconciliation",
+   "link_to": "Vendor Billing Reconciliation",
+   "report_ref_doctype": "Cab Request",
+   "type": "Report"
   }
  ],
  "title": "Manager dashboard"

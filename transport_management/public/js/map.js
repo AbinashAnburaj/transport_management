@@ -545,9 +545,10 @@ function init_map(frm) {
     $(frm.get_field('drop_location').wrapper).hide();
 
     const map = L.map('cab-map-el').setView([20.5937, 78.9629], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom: 19
-    }).addTo(map);
+    tms_enhance_map(map);
+    tms_add_locate(map, function (coords) {
+        tms_reverse_set_pickup(frm, coords);
+    });
 
     frm._map              = map;
     frm._markers          = {};
@@ -626,6 +627,81 @@ function inject_styles() {
 }
 
 // ── Autocomplete Search ────────────────────────────────────────────────────
+// Normalise a Photon (OSM) GeoJSON feature into the {display_name, lat, lon}
+// shape the rest of this file expects.
+function photon_to_result(f) {
+    const p = (f && f.properties) || {};
+    const c = (f && f.geometry && f.geometry.coordinates) || [0, 0];
+    const parts = [p.name, p.street, p.district, p.city, p.county, p.state, p.country];
+    const seen = [];
+    parts.forEach(function (x) {
+        if (x && seen[seen.length - 1] !== x) seen.push(x);
+    });
+    return { display_name: seen.join(', '), lat: String(c[1]), lon: String(c[0]) };
+}
+
+// ── Advanced map helpers (Street/Satellite switcher, scale, geolocation) ────
+function tms_enhance_map(map) {
+    var street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { attribution: '© OpenStreetMap', maxZoom: 19 });
+    var satellite = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: '© Esri World Imagery', maxZoom: 19 });
+    street.addTo(map);
+    L.control.layers({ 'Street': street, 'Satellite': satellite }, {},
+        { position: 'topright' }).addTo(map);
+    L.control.scale({ imperial: false }).addTo(map);
+    return map;
+}
+
+function tms_add_locate(map, on_locate) {
+    var ctl = L.control({ position: 'topleft' });
+    ctl.onAdd = function () {
+        var box = L.DomUtil.create('div', 'leaflet-bar');
+        var a = L.DomUtil.create('a', '', box);
+        a.href = '#';
+        a.title = 'Use my current location';
+        a.innerHTML = '📍';
+        a.style.cssText = 'font-size:15px;text-align:center;line-height:26px;';
+        L.DomEvent.on(a, 'click', function (e) {
+            L.DomEvent.stop(e);
+            if (!navigator.geolocation) {
+                frappe.msgprint('Geolocation is not available in this browser.');
+                return;
+            }
+            a.innerHTML = '⏳';
+            navigator.geolocation.getCurrentPosition(function (pos) {
+                a.innerHTML = '📍';
+                var c = [pos.coords.latitude, pos.coords.longitude];
+                map.setView(c, 16);
+                if (on_locate) on_locate(c);
+            }, function () {
+                a.innerHTML = '📍';
+                frappe.msgprint('Could not get your location.');
+            });
+        });
+        return box;
+    };
+    ctl.addTo(map);
+}
+
+function tms_reverse_set_pickup(frm, coords) {
+    fetch('https://photon.komoot.io/reverse?lat=' + coords[0] + '&lon=' + coords[1] + '&lang=en')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            var f = data && data.features && data.features[0];
+            var label = f ? photon_to_result(f).display_name
+                : (coords[0].toFixed(5) + ', ' + coords[1].toFixed(5));
+            frm._pickup_coords = coords;
+            $('#cab-pickup-input').val(label);
+            place_marker(frm, 'pickup', coords, label);
+            safe_set(frm, 'pickup_location', label);
+            safe_set(frm, 'pickup_lat', String(coords[0]));
+            safe_set(frm, 'pickup_lng', String(coords[1]));
+            try_draw_route(frm);
+        }).catch(function () {});
+}
+
 function bind_search(input_id, sug_id, on_select) {
     let timer;
     $('#' + input_id).on('input', function() {
@@ -634,23 +710,26 @@ function bind_search(input_id, sug_id, on_select) {
         const q = $(this).val().trim();
         if (q.length < 3) { $('#' + sug_id).hide().empty(); return; }
         timer = setTimeout(() => {
-            fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`,
-                { headers: { 'Accept-Language': 'en' } })
+            // Photon — OSM-based, typo-tolerant, built for as-you-type search.
+            fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=en`)
                 .then(r => r.json())
-                .then(results => {
+                .then(data => {
                     const $box = $('#' + sug_id).empty();
-                    if (!results.length) { $box.hide(); return; }
-                    results.forEach(r => {
-                        $('<div class="cab-sug-item">').text(r.display_name).appendTo($box)
+                    const feats = (data && data.features) || [];
+                    if (!feats.length) { $box.hide(); return; }
+                    feats.forEach(f => {
+                        const item = photon_to_result(f);
+                        if (!item.display_name) return;
+                        $('<div class="cab-sug-item">').text(item.display_name).appendTo($box)
                             .on('click', function() {
-                                $('#' + input_id).val(r.display_name);
+                                $('#' + input_id).val(item.display_name);
                                 $box.hide().empty();
-                                on_select(r);
+                                on_select(item);
                             });
                     });
                     $box.show();
                 }).catch(() => {});
-        }, 420);
+        }, 250);
     });
     $(document).on('click', function(e) {
         if (!$(e.target).is('#' + input_id)) $('#' + sug_id).hide();
@@ -659,15 +738,16 @@ function bind_search(input_id, sug_id, on_select) {
 
 // ── Geocode helpers ────────────────────────────────────────────────────────
 function geocode_and_place(frm, text, type) {
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&limit=1`,
-        { headers: { 'Accept-Language': 'en' } })
+    fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(text)}&limit=1&lang=en`)
         .then(r => r.json())
         .then(data => {
-            if (data && data[0]) {
-                const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            const f = data && data.features && data.features[0];
+            if (f) {
+                const item = photon_to_result(f);
+                const coords = [parseFloat(item.lat), parseFloat(item.lon)];
                 if (type === 'pickup') frm._pickup_coords = coords;
                 else frm._drop_coords = coords;
-                place_marker(frm, type, coords, data[0].display_name);
+                place_marker(frm, type, coords, item.display_name);
                 try_draw_route(frm);
             }
         }).catch(() => {});
@@ -682,15 +762,34 @@ function geocode_field(frm, type) {
 function place_marker(frm, type, coords, label) {
     if (!frm._map) return;
     if (frm._markers[type]) frm._map.removeLayer(frm._markers[type]);
-    const color = type === 'pickup' ? '#198754' : '#dc3545';
+    const isPickup = type === 'pickup';
+    const color = isPickup ? '#198754' : '#dc3545';
+    const glyph = isPickup ? '📍' : '🏁';
+
+    // Richer teardrop pin with a glyph inside.
     const icon = L.divIcon({
-        html: `<div style="width:18px;height:18px;background:${color};border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>`,
-        iconSize: [24, 24], iconAnchor: [12, 12], className: ''
+        className: '',
+        html: `<div style="position:relative;width:34px;height:44px;">
+                 <div style="position:absolute;left:0;top:0;width:34px;height:34px;
+                      background:${color};border:3px solid #fff;border-radius:50% 50% 50% 0;
+                      transform:rotate(-45deg);box-shadow:0 3px 8px rgba(0,0,0,.4);"></div>
+                 <div style="position:absolute;left:0;top:5px;width:34px;height:24px;
+                      text-align:center;font-size:15px;">${glyph}</div>
+               </div>`,
+        iconSize: [34, 44], iconAnchor: [17, 44], popupAnchor: [0, -40]
     });
+
     frm._markers[type] = L.marker(coords, { icon })
         .addTo(frm._map)
-        .bindPopup(`<b>${type === 'pickup' ? '📍 Pickup' : '🏁 Drop'}</b><br><small>${label}</small>`)
+        .bindPopup(`<div style="font-family:sans-serif;min-width:150px;">
+              <div style="font-weight:700;color:${color};font-size:13px;margin-bottom:3px;">
+                ${isPickup ? '📍 Pickup Point' : '🏁 Drop Point'}</div>
+              <div style="font-size:11px;color:#444;line-height:1.5;">${label || ''}</div>
+              <div style="font-size:10px;color:#999;margin-top:4px;">
+                ${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}</div>
+            </div>`, { maxWidth: 240 })
         .openPopup();
+
     const pts = Object.values(frm._markers).map(m => m.getLatLng());
     if (pts.length >= 2) frm._map.fitBounds(L.latLngBounds(pts).pad(0.2));
     else frm._map.setView(coords, 14);
@@ -1017,7 +1116,7 @@ window._rf_view_route_on_map = function(route_name) {
     if (window._cab_route_modal_map) { window._cab_route_modal_map.remove(); window._cab_route_modal_map = null; }
 
     var modal_map = L.map('cab-route-map-el').setView([20.5937, 78.9629], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(modal_map);
+    tms_enhance_map(modal_map);
     window._cab_route_modal_map = modal_map;
 
     var wps = (cab.waypoints || []).slice().sort(function(a,b){ return a.sequence - b.sequence; });
@@ -1324,9 +1423,7 @@ function _show_driver_map_panel(frm) {
 
     if (!_driver_map) {
         _driver_map = L.map('cab-driver-map-el').setView([13.0827, 80.2707], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap', maxZoom: 19
-        }).addTo(_driver_map);
+        tms_enhance_map(_driver_map);
     }
 
     _driver_load_route(frm);
@@ -1506,9 +1603,7 @@ function _show_employee_route_tracker(frm) {
 
     if (!_emp_tracker_map) {
         _emp_tracker_map = L.map('cab-emp-tracker-map-el').setView([13.0827, 80.2707], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap', maxZoom: 19
-        }).addTo(_emp_tracker_map);
+        tms_enhance_map(_emp_tracker_map);
     }
 
     _emp_tracker_load(frm);
@@ -1663,13 +1758,14 @@ function _emp_tracker_render(frm, route) {
             _emp_tracker_layers.push(dash);
         }
     } else if (frm.doc.pickup_location) {
-        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(frm.doc.pickup_location)}&format=json&limit=1`,
-            { headers: { 'Accept-Language': 'en' } })
+        fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(frm.doc.pickup_location)}&limit=1&lang=en`)
             .then(r => r.json())
             .then(function(data) {
-                if (!data || !data[0]) return;
-                emp_lat = parseFloat(data[0].lat);
-                emp_lng = parseFloat(data[0].lon);
+                const f = data && data.features && data.features[0];
+                if (!f) return;
+                const c = (f.geometry && f.geometry.coordinates) || [0, 0];
+                emp_lat = parseFloat(c[1]);
+                emp_lng = parseFloat(c[0]);
                 frm._pickup_coords = [emp_lat, emp_lng];
                 _emp_tracker_render(frm, route);
             }).catch(() => {});

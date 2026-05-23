@@ -1,0 +1,144 @@
+# Copyright (c) 2026, our team and contributors
+# For license information, please see license.txt
+
+"""Scheduled vehicle-maintenance checks for the Transport Management app.
+
+`daily_maintenance_check` is registered as a daily scheduler event in hooks.py.
+It flags vehicles whose next service is due by date or by odometer reading and
+sends ONE consolidated digest email to the recipients configured in
+Transport Settings.
+
+Both signals are driven by custom fields on the standard Vehicle doctype
+(added by the v1_0.add_vehicle_compliance_fields patch):
+  - custom_next_service_date      -> date-based due check
+  - custom_next_service_odometer  -> odometer-based due check (vs last_odometer)
+"""
+
+import frappe
+from frappe import _
+from frappe.utils import date_diff, escape_html, flt, formatdate, getdate, today
+
+from transport_management.transport_management.automation.utils import (
+    get_alert_recipients,
+    parse_day_list,
+)
+
+
+def daily_maintenance_check():
+    """Daily scheduler entry point — see hooks.scheduler_events."""
+    settings = frappe.get_single("Transport Settings")
+    if not settings.enable_maintenance_alerts:
+        return
+
+    warning_days = parse_day_list(settings.maintenance_warning_days) or [15, 7, 1]
+    look_ahead = max(warning_days)
+    odometer_buffer = int(settings.service_odometer_alert_buffer_km or 500)
+
+    items = _collect_due_vehicles(look_ahead, odometer_buffer)
+    if not items:
+        return
+
+    recipients = get_alert_recipients(settings)
+    if not recipients:
+        frappe.log_error(
+            message=_("Found {0} vehicle(s) due for maintenance but no valid "
+                      "recipients are configured in Transport Settings.").format(len(items)),
+            title="Transport Maintenance Check",
+        )
+        return
+
+    _send_digest(recipients, items)
+
+
+def _collect_due_vehicles(look_ahead_days, odometer_buffer):
+    """Return vehicles with one or more maintenance reasons (date and/or odometer)."""
+    meta = frappe.get_meta("Vehicle")
+    has_date = meta.has_field("custom_next_service_date")
+    has_odometer = meta.has_field("custom_next_service_odometer")
+    if not has_date and not has_odometer:
+        return []
+
+    fields = ["name", "license_plate", "last_odometer"]
+    if has_date:
+        fields.append("custom_next_service_date")
+    if has_odometer:
+        fields.append("custom_next_service_odometer")
+
+    today_date = getdate(today())
+    items = []
+
+    for vehicle in frappe.get_all("Vehicle", fields=fields):
+        reasons = _service_reasons(vehicle, today_date, look_ahead_days, odometer_buffer)
+        if reasons:
+            items.append({
+                "name": vehicle.get("name"),
+                "label": vehicle.get("license_plate") or vehicle.get("name"),
+                "reasons": reasons,
+            })
+    return items
+
+
+def _service_reasons(vehicle, today_date, look_ahead_days, odometer_buffer):
+    """Build the list of human-readable reasons a vehicle is due for service."""
+    reasons = []
+
+    service_date = vehicle.get("custom_next_service_date")
+    if service_date:
+        days_left = date_diff(getdate(service_date), today_date)
+        if days_left < 0:
+            reasons.append(
+                _("Service overdue by {0} day(s) — was due {1}").format(
+                    abs(days_left), formatdate(service_date))
+            )
+        elif days_left <= look_ahead_days:
+            reasons.append(
+                _("Service due in {0} day(s) — on {1}").format(
+                    days_left, formatdate(service_date))
+            )
+
+    next_odometer = flt(vehicle.get("custom_next_service_odometer"))
+    if next_odometer:
+        km_left = next_odometer - flt(vehicle.get("last_odometer"))
+        if km_left <= 0:
+            reasons.append(
+                _("Odometer is {0} KM past the service point").format(f"{abs(km_left):.0f}")
+            )
+        elif km_left <= odometer_buffer:
+            reasons.append(
+                _("Within {0} KM of the service odometer ({1})").format(
+                    f"{km_left:.0f}", f"{next_odometer:.0f}")
+            )
+
+    return reasons
+
+
+def _send_digest(recipients, items):
+    subject = _("Transport Maintenance Alert — {0} vehicle(s) due for service").format(len(items))
+    rows_html = "".join(_row_html(item) for item in items)
+    message = f"""
+        <p>The following vehicles are due (or overdue) for maintenance.</p>
+        <table border="1" cellpadding="6" cellspacing="0"
+               style="border-collapse:collapse;font-family:sans-serif;font-size:13px;">
+            <thead>
+                <tr style="background:#f0f0f0;text-align:left;">
+                    <th>Vehicle</th><th>Reason(s)</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+        <p style="color:#888;font-size:11px;margin-top:14px;">
+            Generated by Transport Management &middot; {formatdate(today())}
+        </p>
+    """
+
+    frappe.sendmail(recipients=recipients, subject=subject, message=message)
+
+
+def _row_html(item):
+    reasons_html = "<br>".join(escape_html(str(reason)) for reason in item["reasons"])
+    return f"""
+        <tr>
+            <td>{escape_html(str(item['label']))}</td>
+            <td>{reasons_html}</td>
+        </tr>
+    """
