@@ -32,7 +32,7 @@ has_permission = {
     "File": "transport_management.transport_management.permissions.file.has_permission",
 }
 doctype_js = {
-    "Cab Request": "public/js/map.js",
+    "Cab Request": ["public/js/map.js", "public/js/driver_gps_pinger.js"],
     "Vehicle Log": "public/js/vehicle_log.js",
 }
 
@@ -50,7 +50,10 @@ doc_events = {
     },
     "Has Role": {
         "after_insert": "transport_management.transport_management.doctype.vehicle_log.vehicle_log.ensure_vehicle_log_permission_for_driver_role"
-    }
+    },
+    "Cab Route": {
+        "before_save": "transport_management.transport_management.doctype.cab_request.cab_request.generate_route_geojson"
+    },
 }
 
 # --------------------------
@@ -67,3 +70,14 @@ scheduler_events = {
         "transport_management.transport_management.billing.vendor_billing.monthly_vendor_billing",
     ],
 }
+
+# --------------------------
+# Fixtures (round-trip the Manager Live Map block and friends through git)
+# --------------------------
+
+fixtures = [
+    {
+        "doctype": "Custom HTML Block",
+        "filters": [["name", "in", ["Manager Live Map"]]],
+    },
+]

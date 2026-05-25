@@ -55,7 +55,10 @@ def apply_status_transition(cab_request, new_status, source, extra_fields=None,
     Committing the transaction is left to the caller.
     """
     name = cab_request if isinstance(cab_request, str) else cab_request.name
-    current = frappe.db.get_value("Cab Request", name, "status")
+    # Lock the row so a concurrent caller cannot read the same "before" status
+    # and race us into a duplicate transition (e.g. two book_route_cab calls
+    # firing on the same Pending request from a double-click or retry).
+    current = frappe.db.get_value("Cab Request", name, "status", for_update=True)
 
     updates = dict(extra_fields or {})
 

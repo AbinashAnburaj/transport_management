@@ -152,6 +152,9 @@ class CabRequest(Document):
         if not self.is_new():
             return
 
+        if not self.employee_id:
+            return
+
         roles = frappe.get_roles()
         if "Fleet Manager" in roles or "System Manager" in roles or "Driver" in roles:
             return
@@ -280,6 +283,32 @@ def has_permission(doc, ptype=None, user=None):
             return True
 
     return doc.owner == user
+
+
+ALLOWED_REQUEST_ROLES = {"Employee", "Driver", "Fleet Manager", "System Manager"}
+
+
+def _is_manager(roles=None):
+    roles = roles if roles is not None else frappe.get_roles()
+    return "Fleet Manager" in roles or "System Manager" in roles
+
+
+def _is_request_owner(doc, user=None):
+    """True when `user` is the Employee who owns this Cab Request."""
+    user = user or frappe.session.user
+    if getattr(doc, "owner", None) == user:
+        return True
+    employee_id = frappe.db.get_value("Employee", {"user_id": user}, "name")
+    return bool(employee_id) and getattr(doc, "employee_id", None) == employee_id
+
+
+def _is_assigned_driver(doc, user=None):
+    """True when `user` resolves to one of the identifiers stored in `assigned_driver`."""
+    user = user or frappe.session.user
+    assigned = getattr(doc, "assigned_driver", None)
+    if not assigned:
+        return False
+    return assigned in _get_driver_identity_candidates(user)
 
 
 def _get_driver_identity_candidates(user):
@@ -424,6 +453,41 @@ def _get_booked_seat_count(route_name, travel_date):
     return count_by_travel_date + secondary
 
 
+def _get_booked_seat_counts(route_names, travel_date):
+    """Batched seat-count for many routes on one date.
+
+    Returns {route_name: booked_count}. Same semantics as
+    `_get_booked_seat_count` (counts Assigned/In Trip/Completed against both
+    `travel_date` and `DATE(booking_datetime)`), but in a single SQL pass —
+    so a 20-route fleet stays O(1) queries instead of O(40).
+    """
+    if not route_names or not travel_date:
+        return {name: 0 for name in (route_names or [])}
+
+    rows = frappe.db.sql(
+        """
+        SELECT assigned_route, COUNT(*) AS cnt
+        FROM `tabCab Request`
+        WHERE assigned_route IN %(routes)s
+          AND status IN ('Assigned', 'In Trip', 'Completed')
+          AND (
+                travel_date = %(date)s
+             OR ((travel_date IS NULL OR travel_date = '')
+                 AND DATE(booking_datetime) = %(date)s)
+          )
+        GROUP BY assigned_route
+        """,
+        {"routes": tuple(route_names), "date": travel_date},
+        as_dict=True,
+    )
+
+    counts = {name: 0 for name in route_names}
+    for r in rows:
+        if r["assigned_route"] in counts:
+            counts[r["assigned_route"]] = int(r["cnt"])
+    return counts
+
+
 # =========================================================
 #  AUTO-FETCH EMPLOYEE DETAILS
 # =========================================================
@@ -459,6 +523,9 @@ def find_matching_cabs(employee_lat, employee_lng, travel_date, threshold_km=5.0
     Returns list sorted by distance_from_route ascending.
     FIX: Seat counts are always fetched live from DB, never cached.
     """
+    if not (set(frappe.get_roles()) & ALLOWED_REQUEST_ROLES):
+        frappe.throw(_("You are not authorised to search cabs."), frappe.PermissionError)
+
     emp_lat   = float(employee_lat)
     emp_lng   = float(employee_lng)
     threshold = float(threshold_km)
@@ -474,6 +541,8 @@ def find_matching_cabs(employee_lat, employee_lng, travel_date, threshold_km=5.0
             "end_location",   "end_lat",   "end_lng",
         ]
     )
+
+    seat_counts = _get_booked_seat_counts([r["name"] for r in routes], travel_date)
 
     results = []
 
@@ -511,7 +580,7 @@ def find_matching_cabs(employee_lat, employee_lng, travel_date, threshold_km=5.0
             continue
 
         # FIX: Always fetch live seat count from DB for this route+date
-        booked    = _get_booked_seat_count(route["name"], travel_date)
+        booked    = seat_counts.get(route["name"], 0)
         available = max(0, (route["total_seats"] or 0) - booked)
 
         results.append({
@@ -549,7 +618,7 @@ def book_route_cab(cab_request_name, route_name, distance_from_route=None):
     FIX: Sets travel_date from booking_datetime so seat counts always work.
          Re-checks seat count at booking time to prevent race conditions.
     """
-    import random
+    import secrets
 
     # ── Validate doc exists ───────────────────────────────────────────────
     if not frappe.db.exists("Cab Request", cab_request_name):
@@ -561,6 +630,16 @@ def book_route_cab(cab_request_name, route_name, distance_from_route=None):
 
     doc   = frappe.get_doc("Cab Request", cab_request_name)
     route = frappe.get_doc("Cab Route", route_name)
+
+    # Only the employee who owns this request (or a manager) may book it.
+    # Without this, any authenticated employee could hijack another employee's
+    # pending request by supplying its docname.
+    roles = frappe.get_roles()
+    if not _is_manager(roles) and not _is_request_owner(doc):
+        frappe.throw(
+            _("You can only book a cab for your own request."),
+            frappe.PermissionError,
+        )
 
     # ── Extract travel date from booking_datetime ─────────────────────────
     travel_date = None
@@ -596,7 +675,8 @@ def book_route_cab(cab_request_name, route_name, distance_from_route=None):
         }
 
     # ── Generate 6-digit OTP ──────────────────────────────────────────────
-    otp = str(random.randint(100000, 999999))
+    # Use `secrets` (CSPRNG) so the OTP cannot be predicted from prior samples.
+    otp = str(secrets.randbelow(900000) + 100000)
 
     # ── FIX: Also store route display name for easy retrieval ─────────────
     # assigned_route stores internal DocName (e.g. CAB-ROUTE-001)
@@ -754,7 +834,7 @@ def cancel_route_booking(cab_request_name):
 
     if doc.status not in ("Assigned", "Pending"):
         frappe.throw(_(
-            "You can only cancel a booking with status <b>Assigned</b>. "
+            "You can only cancel a booking with status <b>Pending</b> or <b>Assigned</b>. "
             "Once the driver has started the trip (In Trip), cancellation is not allowed."
         ))
 
@@ -803,6 +883,15 @@ def verify_otp_and_start_trip(docname, entered_otp):
         frappe.throw(_("Only a Driver can verify OTP and start a trip."))
 
     doc = frappe.get_doc("Cab Request", docname)
+
+    # Block drivers from acting on trips they are not assigned to.
+    # Managers retain override; without this gate, any driver-role user with the
+    # OTP could start any other driver's trip.
+    if not _is_manager(roles) and not _is_assigned_driver(doc):
+        frappe.throw(
+            _("You are not the assigned driver for this trip."),
+            frappe.PermissionError,
+        )
 
     if doc.status != "Assigned":
         return {
@@ -867,6 +956,13 @@ def driver_complete_trip(docname):
 
     doc = frappe.get_doc("Cab Request", docname)
 
+    # See note in verify_otp_and_start_trip — drivers may only act on their own trip.
+    if not _is_manager(roles) and not _is_assigned_driver(doc):
+        frappe.throw(
+            _("You are not the assigned driver for this trip."),
+            frappe.PermissionError,
+        )
+
     if doc.status != "In Trip":
         frappe.throw(_("Only a trip that is 'In Trip' can be marked as Completed."))
 
@@ -892,6 +988,16 @@ def get_booking_display_details(cab_request_name):
         return None
 
     doc = frappe.get_doc("Cab Request", cab_request_name)
+
+    # Restrict to the request owner, the assigned driver, or a manager.
+    # Otherwise any logged-in user could read PII (employee name, contact,
+    # pickup location) for any booking by guessing the docname.
+    roles = frappe.get_roles()
+    if not (_is_manager(roles) or _is_request_owner(doc) or _is_assigned_driver(doc)):
+        frappe.throw(
+            _("You are not authorised to view this booking."),
+            frappe.PermissionError,
+        )
 
     result = {
         "status":              doc.status,
@@ -960,6 +1066,8 @@ def get_all_routes_for_manager():
         ignore_permissions=True,
     )
 
+    seat_counts = _get_booked_seat_counts([r["name"] for r in routes_raw], today)
+
     routes = []
     for r in routes_raw:
         waypoints_raw = frappe.get_all(
@@ -988,7 +1096,7 @@ def get_all_routes_for_manager():
             }]
         )
 
-        booked = _get_booked_seat_count(r["name"], today)
+        booked = seat_counts.get(r["name"], 0)
 
         routes.append({
             "name":              r["name"],
@@ -1106,7 +1214,6 @@ def get_driver_route_details():
 
     # ── Find the first matching active Cab Route ───────────────────────────
     route_name = None
-    matched_driver_key = None  # the value that matched, used later for passengers
 
     for candidate in candidates:
         found = frappe.db.get_value(
@@ -1116,7 +1223,6 @@ def get_driver_route_details():
         )
         if found:
             route_name = found
-            matched_driver_key = candidate
             break
 
     # ── Fallback: find route via an active Cab Request for today ──────────
@@ -1134,7 +1240,6 @@ def get_driver_route_details():
             )
             if req_route:
                 route_name = req_route
-                matched_driver_key = candidate
                 break
 
     if not route_name:

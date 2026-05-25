@@ -364,22 +364,20 @@ def has_permission(doc, user=None, permission_type=None):
     if not _is_driver_only(user):
         return False
 
-    # Doctype-level / pre-insert checks (including attachment checks on new docs).
-    if not getattr(doc, "doctype", None):
-        return permission_type in (None, "read", "create", "write")
-
-    # Frappe may pass a synthetic unsaved doc during upload_file permission checks.
-    if hasattr(doc, "is_new") and doc.is_new():
-        return permission_type in (None, "read", "create", "write")
-
-    # Allow doctype-level checks for new unsaved docs (used by upload_file pre-check).
-    docname = getattr(doc, "name", "") or ""
-    if not docname:
-        return permission_type in (None, "read", "create", "write")
-
-    # Unsaved docs can have provisional names like new-vehicle-log-xxxxx.
-    if docname.startswith("new-vehicle-log-"):
-        return True
+    # Pre-insert / synthetic-doc paths (doctype-level checks, attachment
+    # upload pre-checks, provisional unsaved docs). Restrict to drivers who
+    # actually have an active route — without that gate, any driver-role user
+    # could open a Vehicle Log create form for any vehicle.
+    pre_insert = (
+        not getattr(doc, "doctype", None)
+        or (hasattr(doc, "is_new") and doc.is_new())
+        or not (getattr(doc, "name", "") or "")
+        or (getattr(doc, "name", "") or "").startswith("new-vehicle-log-")
+    )
+    if pre_insert:
+        if permission_type not in (None, "read", "create", "write"):
+            return False
+        return bool(_find_active_route_for_driver(user))
 
     if _has_vehicle_log_field("employee"):
         employee = _get_employee_for_user(user)
