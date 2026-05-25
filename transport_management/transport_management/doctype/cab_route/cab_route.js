@@ -65,13 +65,15 @@ function build_route_picker(frm) {
             style="border:none;color:#fff;background:#dc3545;padding:7px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;">🏁 Set End</button>
           <button type="button" class="croute-mode" data-mode="waypoint"
             style="border:none;color:#fff;background:#0d6efd;padding:7px 13px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;">➕ Add Waypoint</button>
+          <button type="button" id="croute-clear-wp"
+            style="border:1px solid #dc3545;color:#dc3545;background:#fff;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;">🧹 Clear Waypoints</button>
           <span id="croute-mode-label" style="font-size:12px;color:#6c757d;font-weight:600;"></span>
         </div>
         <div style="position:relative;margin-bottom:8px;">
           <input id="croute-search" type="text" autocomplete="off"
             placeholder="Search a place — it sets the selected point…"
             style="width:100%;padding:9px 12px;border:1.5px solid #ced4da;border-radius:8px;font-size:13px;box-sizing:border-box;outline:none;">
-          <div id="croute-sug" style="position:absolute;z-index:1000;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:8px;margin-top:2px;max-height:210px;overflow:auto;display:none;box-shadow:0 4px 14px rgba(0,0,0,.14);"></div>
+          <div id="croute-sug" style="position:absolute;z-index:2000;left:0;right:0;background:#fff;border:1px solid #dee2e6;border-radius:8px;margin-top:2px;max-height:210px;overflow:auto;display:none;box-shadow:0 4px 14px rgba(0,0,0,.14);"></div>
         </div>
         <div id="croute-map" style="height:390px;border-radius:10px;border:1.5px solid #dee2e6;overflow:hidden;background:#e8eaed;"></div>
         <div style="font-size:11px;color:#6c757d;margin-top:6px;">
@@ -102,8 +104,47 @@ function build_route_picker(frm) {
     set_mode(frm, 'start');
     $('.croute-mode').on('click', function () { set_mode(frm, $(this).data('mode')); });
     bind_route_search(frm);
+    bind_waypoint_actions(frm);
 
     setTimeout(function () { map.invalidateSize(); redraw_route_map(frm); }, 250);
+}
+
+// ── Waypoint remove (from map popup) + clear-all ─────────────────────────────
+function bind_waypoint_actions(frm) {
+    // Single delegated handler — survives popup re-renders without double-binding.
+    $(document).off('click.croute-rm-wp').on('click.croute-rm-wp', '.croute-rm-wp', function (e) {
+        e.preventDefault();
+        const docname = $(this).data('name');
+        const rows = frm.doc.waypoints || [];
+        const idx = rows.findIndex(function (w) { return w.name === docname; });
+        if (idx < 0) return;
+        // clear_doc is the canonical Frappe API — handles both unsaved (client-only)
+        // and saved rows (flagged for DELETE on next save).
+        frappe.model.clear_doc('Route Waypoint', docname);
+        // Re-sequence the survivors so stop numbers stay consecutive.
+        (frm.doc.waypoints || []).forEach(function (w, i) { w.sequence = i + 1; });
+        frm.refresh_field('waypoints');
+        redraw_route_map(frm);
+        if (frm._croute_map) frm._croute_map.closePopup();
+    });
+
+    $('#croute-clear-wp').off('click').on('click', function () {
+        const rows = (frm.doc.waypoints || []).slice();
+        if (!rows.length) {
+            frappe.show_alert({message: __('No waypoints to clear.'), indicator: 'gray'});
+            return;
+        }
+        frappe.confirm(
+            __('Remove all {0} waypoint(s)?', [rows.length]),
+            function () {
+                rows.forEach(function (w) {
+                    if (w.name) frappe.model.clear_doc('Route Waypoint', w.name);
+                });
+                frm.refresh_field('waypoints');
+                redraw_route_map(frm);
+            },
+        );
+    });
 }
 
 function set_mode(frm, mode) {
@@ -237,8 +278,15 @@ function redraw_route_map(frm) {
     wps.forEach(function (w, i) {
         if (!w.latitude || !w.longitude) return;
         const c = [w.latitude, w.longitude];
+        // Escape stop_name & docname so they're safe inside HTML attributes.
+        const safe_name = frappe.utils.escape_html(w.stop_name || '');
+        const safe_doc = frappe.utils.escape_html(w.name || '');
+        const popup_html =
+            '<b>Stop ' + (i + 1) + '</b><br>' + safe_name +
+            '<br><a href="#" class="croute-rm-wp" data-name="' + safe_doc +
+            '" style="color:#dc3545;font-weight:600;font-size:11px;">✕ Remove this waypoint</a>';
         add(L.marker(c, { icon: pin_icon('#0d6efd', String(i + 1)) })
-            .bindPopup('<b>Stop ' + (i + 1) + '</b><br>' + (w.stop_name || '')));
+            .bindPopup(popup_html));
         pts.push(c); line_pts.push(c);
     });
 
