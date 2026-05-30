@@ -48,7 +48,7 @@ def _assert_can_post_for(vehicle):
     if not assigned or assigned != vehicle:
         frappe.throw(
             _("You can only post locations for your assigned vehicle ({0}).").format(
-                assigned or _("none")),
+                assigned or _("No vehicle is assigned to your active route.")),
             frappe.PermissionError,
         )
 
@@ -344,12 +344,14 @@ def get_vehicle_track(vehicle, limit=100):
     if not (set(frappe.get_roles()) & GPS_VIEW_ROLES):
         frappe.throw(_("Access denied."), frappe.PermissionError)
 
+    # M-5: Cap at 1000 to prevent unbounded result sets / DoS via large limit param.
+    limit = min(int(limit or 100), 1000)
     return frappe.get_all(
         "Vehicle GPS Log",
         filters={"vehicle": vehicle},
         fields=["name", "latitude", "longitude", "speed_kmph", "recorded_at"],
         order_by="recorded_at desc",
-        limit=int(limit or 100),
+        limit=limit,
     )
 
 
