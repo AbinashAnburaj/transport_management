@@ -16,12 +16,16 @@
   "shift_type",
   "shift_time",
   "booking_datetime",
+  "travel_date",
   "trip_details_section",
   "pickup_location",
   "drop_location",
   "assigned_driver",
   "assigned_cab",
+  "assigned_route",
+  "distance_from_route",
   "status",
+  "otp",
   "pickup_lat",
   "pickup_lng",
   "drop_lat",
@@ -97,7 +101,8 @@
    "fieldtype": "Select",
    "label": "Trip Status",
    "options": "Pending\nAssigned\nIn Trip\nCompleted\nCancelled",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "driver_id",
@@ -116,11 +121,11 @@
   },
   {
    "fieldname": "assigned_driver",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Assigned Driver",
-   "options": "Driver",
    "permlevel": 1,
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "drop_location",
@@ -134,7 +139,9 @@
    "fieldname": "employee_id",
    "fieldtype": "Link",
    "label": "Employee Id",
-   "options": "Employee"
+   "options": "Employee",
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "pickup_lat",
@@ -176,8 +183,7 @@
    "fieldname": "shift_type",
    "fieldtype": "Link",
    "label": "Shift type",
-   "options": "Shift Type",
-   "reqd": 1
+   "options": "Shift Type"
   },
   {
    "fieldname": "section_break_olzy",
@@ -267,8 +273,7 @@
    "fieldname": "shift_time",
    "fieldtype": "Data",
    "label": "Shift time",
-   "read_only": 1,
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -279,13 +284,47 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "assigned_route",
+   "fieldtype": "Link",
+   "label": "Assigned Route",
+   "options": "Cab Route",
+   "permlevel": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "travel_date",
+   "fieldtype": "Date",
+   "hidden": 1,
+   "label": "Travel Date",
+   "permlevel": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "otp",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "OTP",
+   "no_copy": 1,
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "distance_from_route",
+   "fieldtype": "Float",
+   "label": "Distance from Route (km)",
+   "permlevel": 1,
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "is_submittable": 1,
+ "is_submittable": 0,
  "links": [],
- "modified": "2026-03-02 21:34:18.106682",
+ "modified": "2026-05-23 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Transport Management",
  "name": "Cab Request",
@@ -302,11 +341,9 @@
    "report": 1,
    "role": "Employee",
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {
-   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -316,7 +353,6 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {
@@ -328,7 +364,6 @@
    "report": 1,
    "role": "Driver",
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {
@@ -341,7 +376,6 @@
    "report": 1,
    "role": "Fleet Manager",
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {

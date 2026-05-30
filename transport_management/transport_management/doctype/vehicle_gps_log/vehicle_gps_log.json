@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-05-22 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "vehicle",
+  "recorded_at",
+  "column_break_main",
+  "speed_kmph",
+  "source",
+  "driver",
+  "coordinates_section",
+  "latitude",
+  "column_break_coords",
+  "longitude"
+ ],
+ "fields": [
+  {
+   "fieldname": "vehicle",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Vehicle",
+   "options": "Vehicle",
+   "reqd": 1
+  },
+  {
+   "fieldname": "recorded_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Recorded At"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "speed_kmph",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Speed (km/h)"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source"
+  },
+  {
+   "fieldname": "driver",
+   "fieldtype": "Data",
+   "label": "Driver"
+  },
+  {
+   "fieldname": "coordinates_section",
+   "fieldtype": "Section Break",
+   "label": "Coordinates"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Latitude",
+   "precision": "8"
+  },
+  {
+   "fieldname": "column_break_coords",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Longitude",
+   "precision": "8"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-05-22 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Transport Management",
+ "name": "Vehicle GPS Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Fleet Manager"
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Driver"
+  }
+ ],
+ "sort_field": "recorded_at",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

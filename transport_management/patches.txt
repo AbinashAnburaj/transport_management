@@ -4,4 +4,11 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+transport_management.transport_management.patches.v1_0.add_vehicle_compliance_fields
+transport_management.transport_management.patches.v1_0.retire_cab_request_workflow
+transport_management.transport_management.patches.v1_0.normalize_cab_request_status
+transport_management.transport_management.patches.v1_0.normalize_cab_request_docstatus
+transport_management.transport_management.patches.v1_0.set_driver_dashboard_permissions
+transport_management.transport_management.patches.v1_0.repurpose_approved_trips_card
+transport_management.transport_management.patches.v1_0.add_performance_indexes
 
