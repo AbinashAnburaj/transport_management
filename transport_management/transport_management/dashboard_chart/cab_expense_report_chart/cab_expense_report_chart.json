@@ -38,11 +38,27 @@
  "x_field": "cab_route",
  "y_axis": [
   {
-   "color": "#000000",
+   "color": "#5e64ff",
    "y_field": "total_expense"
   },
   {
-   "color": "#449CF0",
+   "color": "#00bcd4",
+   "y_field": "total_expense"
+  },
+  {
+   "color": "#28a745",
+   "y_field": "total_expense"
+  },
+  {
+   "color": "#ffa00a",
+   "y_field": "total_expense"
+  },
+  {
+   "color": "#ff5858",
+   "y_field": "total_expense"
+  },
+  {
+   "color": "#9c27b0",
    "y_field": "total_expense"
   }
  ]

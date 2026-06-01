@@ -140,6 +140,7 @@
    "fieldtype": "Link",
    "label": "Employee Id",
    "options": "Employee",
+   "reqd": 1,
    "search_index": 1
   },
   {

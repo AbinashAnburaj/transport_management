@@ -21,7 +21,7 @@ def has_permission(doc, ptype=None, user=None, debug=False):
     ):
         if ptype in (None, "create", "read", "select", "write"):
             return True
-        return True
+        return None
 
     # Defer to Frappe's default File permission logic for all other cases.
     return None

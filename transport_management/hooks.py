@@ -78,6 +78,6 @@ scheduler_events = {
 fixtures = [
     {
         "doctype": "Custom HTML Block",
-        "filters": [["name", "in", ["Manager Live Map"]]],
+        "filters": [["name", "in", ["Manager Live Map", "Manager dashboard", "Driver Dashboard", "Driver Details", "Driver Dashboard Theme"]]],
     },
 ]

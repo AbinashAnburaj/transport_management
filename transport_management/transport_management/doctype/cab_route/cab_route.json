@@ -170,6 +170,14 @@
    "role": "Fleet Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Employee"
+  },
+  {
+   "read": 1,
+   "role": "Driver"
   }
  ],
  "row_format": "Dynamic",
